@@ -1,0 +1,16 @@
+# Core
+django
+djangorestframework
+psycopg2-binary
+python-dotenv
+dj-database-url
+
+# API Features
+django-filter
+django-cors-headers
+
+# Authentication
+dj-rest-auth
+djangorestframework-simplejwt
+django-allauth
+requests
