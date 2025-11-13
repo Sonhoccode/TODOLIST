@@ -106,6 +106,8 @@ export default function TodoDashboard() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
+  const [categoryError, setCategoryError] = useState("");
+
   // (modal state cho Category)
   const [openAddCategory, setOpenAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -267,17 +269,39 @@ export default function TodoDashboard() {
 
   async function onSaveCategory() {
     const name = newCategoryName.trim();
-    if (!name) return alert("Tên danh mục không được trống.");
+    setCategoryError(""); // reset lỗi trước mỗi lần lưu
+
+    if (!name) {
+      setCategoryError("Tên danh mục không được để trống.");
+      return;
+    }
+
+    const existed = categories.some(
+      (c) => c.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (existed) {
+      setCategoryError("Danh mục này đã tồn tại. Vui lòng dùng tên khác.");
+      return;
+    }
+
     try {
-      await createCategory({ name: name });
+      await createCategory({ name });
       setNewCategoryName("");
+      setCategoryError("");
       setOpenAddCategory(false);
-      await loadCategories(); 
+      await loadCategories();
     } catch (err) {
       console.error("Lỗi khi tạo category:", err);
-      alert("Đã xảy ra lỗi, vui lòng thử lại.");
+
+      if (err.response && err.response.data && err.response.data.name) {
+        setCategoryError(err.response.data.name[0]);
+      } else {
+        setCategoryError("Không thể tạo danh mục. Vui lòng thử lại.");
+      }
     }
   }
+
+
 
   async function handleConfirmDeleteCategory() {
     if (!deletingCategory) return;
@@ -551,13 +575,18 @@ export default function TodoDashboard() {
                 </select>
                 <button 
                   type="button" 
-                  onClick={() => setOpenAddCategory(true)}
+                  onClick={() => {
+                    setNewCategoryName("");
+                    setCategoryError("");
+                    setOpenAddCategory(true);
+                  }}
                   className="px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm"
                   aria-label="Thêm danh mục mới"
                   title="Thêm danh mục mới"
                 >
                   +
                 </button>
+
               </div>
             </Field>
           </div>
@@ -600,23 +629,45 @@ export default function TodoDashboard() {
       {/* (Modal Thêm Category) */}
       <Modal
         open={openAddCategory}
-        onClose={() => setOpenAddCategory(false)}
+        onClose={() => {
+          setOpenAddCategory(false);
+          setCategoryError("");
+        }}
         title="Thêm danh mục mới"
         footer={
           <>
-            <button onClick={() => setOpenAddCategory(false)} className="px-3 py-2 rounded-lg border hover:bg-gray-50">Huỷ</button>
-            <button onClick={onSaveCategory} className="px-3 py-2 rounded-lg bg-black text-white">Lưu</button>
+            <button
+              onClick={() => {
+                setOpenAddCategory(false);
+                setCategoryError("");
+              }}
+              className="px-3 py-2 rounded-lg border hover:bg-gray-50"
+            >
+              Huỷ
+            </button>
+            <button onClick={onSaveCategory} className="px-3 py-2 rounded-lg bg-black text-white">
+              Lưu
+            </button>
           </>
         }
       >
         <Field label="Tên danh mục">
           <input
-            className="w-full rounded-lg border px-3 py-2"
+            className={
+              "w-full rounded-lg border px-3 py-2 " +
+              (categoryError ? "border-red-500 focus:ring-1 focus:ring-red-500" : "")
+            }
             value={newCategoryName}
             onChange={(e) => setNewCategoryName(e.target.value)}
             placeholder="Ví dụ: Việc cá nhân"
           />
         </Field>
+
+        {categoryError && (
+          <p className="mt-1 text-sm text-red-600">
+            {categoryError}
+          </p>
+        )}
       </Modal>
 
       {/* (Modal Xác nhận Xoá Category) */}

@@ -5,18 +5,16 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
-        read_only_fields = ['owner'] # <-- Đã thêm
+        read_only_fields = ['owner'] 
+    def validate_name(self, value):
+        user = self.context['request'].user
+        if Category.objects.filter(owner=user, name=value).exists():
+            raise serializers.ValidationError("Danh mục đã tồn tại.")
+        return value
 
 
 # Class tùy chỉnh này sẽ "dịch" qua lại giữa String (trong DB) và Array (trong JSON)
 class TagsField(serializers.Field):
-    """
-    Trường tùy chỉnh để xử lý tags.
-    DB: "api, backend" (String)
-    JSON: ["api", "backend"] (Array)
-    """
-    
-    # Dịch từ Database (String) sang JSON (Array)
     def to_representation(self, value):
         if not value:
             return []
