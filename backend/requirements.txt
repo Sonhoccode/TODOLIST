@@ -14,3 +14,8 @@ dj-rest-auth
 djangorestframework-simplejwt
 django-allauth
 requests
+
+# AI/ML
+joblib
+scikit-learn
+numpy

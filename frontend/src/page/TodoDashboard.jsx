@@ -1,24 +1,28 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-// --- THÊM CÁC IMPORT NÀY ---
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import TaskList from "../components/tasks/TaskList";
 import TaskGrid from "../components/tasks/TaskGrid"; 
+import AIPrediction from "../components/tasks/AIPrediction";
+import ChatbotWidget from "../components/chatbot/ChatbotWidget";
 import { 
   listTasks, createTask, updateTask, deleteTask, 
   listCategories, toggleTaskStatus, createCategory, deleteCategory 
 } from "../api/tasks";
-import { logout } from "../api/auth"; // Import logout từ file auth
+import { logout } from "../api/auth";
 
-// (emptyForm)
+
 const emptyForm = {
   title: "", description: "", due_date: "", due_time: "",
   priority: "Medium", tags: "", is_daily: false, remind_date: "", remind_time: "", 
   completed: false, category: "",
+  // Thêm các trường cho AI
+  planned_start_date: "", planned_start_time: "",
+  estimated_duration_min: "",
 };
 
-// (Các hàm helper 'toLocalInputString', 'splitDateTime', 'Field', 'Modal' giữ nguyên)
+
 function toLocalInputString(isoString) {
   if (!isoString) return "";
   const d = new Date(isoString);
@@ -67,22 +71,27 @@ function Modal({ open, onClose, title, children, footer }) {
     </div>
   );
 }
-// ... (Kết thúc các hàm helper)
-
 
 export default function TodoDashboard() {
-  const navigate = useNavigate(); // Dùng để chuyển trang
-  
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [viewMode, setViewMode] = useState("list"); 
-
-  // (filters state)
+  const [viewMode, setViewMode] = useState("list");
   const [status, setStatus] = useState("all");
   const [priority, setPriority] = useState("all");
   const [category, setCategory] = useState("all");
   const [selectedTags, setSelectedTags] = useState([]);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("default");
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [categoryError, setCategoryError] = useState("");
+  const [openAddCategory, setOpenAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [deletingTask, setDeletingTask] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(null);
   
   const toggleTag = (t) =>
     setSelectedTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
@@ -90,36 +99,13 @@ export default function TodoDashboard() {
     setStatus("all"); setPriority("all"); setCategory("all"); setSelectedTags([]); setSearch("");
   };
 
-  // (search state)
-  const [search, setSearch] = useState("");
   useEffect(() => {
     const h = (e) => setSearch(e.detail || "");
     window.addEventListener("global-search", h);
     return () => window.removeEventListener("global-search", h);
   }, []);
 
-  // (sort state)
-  const [sortBy, setSortBy] = useState("default");
 
-  // (modal state cho Task)
-  const [openEdit, setOpenEdit] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(emptyForm);
-
-  const [categoryError, setCategoryError] = useState("");
-
-  // (modal state cho Category)
-  const [openAddCategory, setOpenAddCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-
-  // (modal state cho Xoá Task)
-  const [deletingTask, setDeletingTask] = useState(null);
-  
-  // (modal state cho Xoá Category)
-  const [deletingCategory, setDeletingCategory] = useState(null);
-  
-
-  // (Hàm load)
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -137,7 +123,6 @@ export default function TodoDashboard() {
       setCategories(catData);
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu:", err);
-      // NẾU LỖI LÀ 401 (Token hết hạn) -> ĐÁ VỀ LOGIN
       if (err.response && err.response.status === 401) {
         localStorage.removeItem("token");
         navigate("/login");
@@ -145,9 +130,9 @@ export default function TodoDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [status, priority, category, navigate]); // Thêm navigate
+  }, [status, priority, category, navigate]);
 
-  // (Hàm loadCategories riêng biệt)
+
   const loadCategories = async () => {
     try {
       const catData = await listCategories();
@@ -161,7 +146,6 @@ export default function TodoDashboard() {
     load();
   }, [load]);
 
-  // --- HÀM 'openCreate' NẰM Ở ĐÂY ---
   function openCreate() { 
     setEditingId(null); 
     setForm(emptyForm); 
@@ -171,23 +155,23 @@ export default function TodoDashboard() {
   function openUpdate(t) {
     setEditingId(t.id);
     const { date: due_date, time: due_time } = splitDateTime(t.due_at);
-    
     const isDaily = !!t.daily_reminder_time;
     const remindISO = isDaily ? null : t.remind_at;
     const { date: remind_date, time: remind_time } = splitDateTime(remindISO);
+    const { date: planned_start_date, time: planned_start_time } = splitDateTime(t.planned_start_at);
     
     setForm({
       title: t.title || "",
       description: t.description || "",
-      due_date: due_date,
-      due_time: due_time,
+      due_date, due_time,
       is_daily: isDaily,
-      remind_date: remind_date,
-      remind_time: isDaily ? (t.daily_reminder_time || "").slice(0, 5) : remind_time,
+      remind_date, remind_time: isDaily ? (t.daily_reminder_time || "").slice(0, 5) : remind_time,
       priority: t.priority || "Medium",
       tags: (t.tags||[]).join(", "),
       completed: !!t.completed,
-      category: t.category || "", 
+      category: t.category || "",
+      planned_start_date, planned_start_time,
+      estimated_duration_min: t.estimated_duration_min || "",
     });
     setOpenEdit(true);
   }
@@ -199,6 +183,7 @@ export default function TodoDashboard() {
     } else if (f.due_date) {
       due_at_payload = new Date(f.due_date).toISOString();
     }
+    
     let remind_at_payload = null;
     let daily_reminder_time_payload = null;
     if (f.is_daily) {
@@ -210,7 +195,15 @@ export default function TodoDashboard() {
         remind_at_payload = new Date(f.remind_date).toISOString();
       }
     }
-    const payload = {
+    
+    let planned_start_at_payload = null;
+    if (f.planned_start_date && f.planned_start_time) {
+      planned_start_at_payload = new Date(`${f.planned_start_date}T${f.planned_start_time}`).toISOString();
+    } else if (f.planned_start_date) {
+      planned_start_at_payload = new Date(f.planned_start_date).toISOString();
+    }
+    
+    return {
       title: f.title.trim(),
       description: f.description.trim(),
       priority: f.priority,
@@ -220,8 +213,9 @@ export default function TodoDashboard() {
       remind_at: remind_at_payload,
       daily_reminder_time: daily_reminder_time_payload,
       category: f.category ? Number(f.category) : null,
+      planned_start_at: planned_start_at_payload,
+      estimated_duration_min: f.estimated_duration_min ? Number(f.estimated_duration_min) : null,
     };
-    return payload;
   }
   
   async function onSave() {
@@ -319,21 +313,19 @@ export default function TodoDashboard() {
     }
   }
 
-  // --- HÀM ĐĂNG XUẤT ---
   const handleLogout = async () => {
     if (!window.confirm("Bạn có chắc muốn đăng xuất?")) return;
     try {
-      await logout(); // Gọi API để xoá token ở backend (trong auth.js)
-      navigate("/login"); // Chuyển về trang login
+      await logout();
+      navigate("/login");
     } catch (err) {
       console.error("Lỗi đăng xuất:", err);
-      // Dù sao cũng xoá token ở local và chuyển hướng
       localStorage.removeItem("token");
       navigate("/login");
     }
   };
 
-  // (useMemo: availableTags, nextReminders, view)
+
   const availableTags = useMemo(() => {
     const s = new Set(); (tasks || []).forEach(t => (t.tags||[]).forEach(x=>s.add(x)));
     return Array.from(s).sort((a,b)=>a.localeCompare(b));
@@ -599,6 +591,57 @@ export default function TodoDashboard() {
               placeholder="api, backend, feature"
             />
           </Field>
+          
+          {/* Các trường cho AI Prediction */}
+          <div className="border-t pt-4 mt-2">
+            <h4 className="text-sm font-semibold mb-3 text-gray-700">🤖 Dự đoán AI (Tùy chọn)</h4>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Bắt đầu (Ngày)">
+                <input
+                  type="date"
+                  className="w-full rounded-lg border px-3 py-2"
+                  value={form.planned_start_date}
+                  onChange={(e)=>setForm({...form, planned_start_date:e.target.value})}
+                />
+              </Field>
+              <Field label="Bắt đầu (Giờ)">
+                <input
+                  type="time"
+                  className="w-full rounded-lg border px-3 py-2"
+                  value={form.planned_start_time}
+                  onChange={(e)=>setForm({...form, planned_start_time:e.target.value})}
+                />
+              </Field>
+            </div>
+            
+            <Field label="Thời lượng ước tính (phút)">
+              <input
+                type="number"
+                min="1"
+                className="w-full rounded-lg border px-3 py-2"
+                value={form.estimated_duration_min}
+                onChange={(e)=>setForm({...form, estimated_duration_min:e.target.value})}
+                placeholder="Ví dụ: 60"
+              />
+            </Field>
+            
+            {/* Component AI Prediction */}
+            <AIPrediction 
+              formData={{
+                priority: form.priority,
+                estimated_duration_min: form.estimated_duration_min ? Number(form.estimated_duration_min) : null,
+                planned_start_at: form.planned_start_date && form.planned_start_time 
+                  ? `${form.planned_start_date}T${form.planned_start_time}` 
+                  : null,
+                due_at: form.due_date && form.due_time 
+                  ? `${form.due_date}T${form.due_time}` 
+                  : null,
+              }}
+              show={!!form.priority}
+            />
+          </div>
+          
           <label className="inline-flex items-center gap-2 mt-1">
             <input
               type="checkbox"
@@ -687,6 +730,9 @@ export default function TodoDashboard() {
           Lưu ý: Các công việc thuộc danh mục này sẽ không bị xoá, nhưng sẽ bị mất liên kết danh mục.
         </p>
       </Modal>
+
+      {/* Chatbot Widget */}
+      <ChatbotWidget onTaskCreated={() => load()} />
 
     </div>
   );
