@@ -16,32 +16,37 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 
-# Application definition
 INSTALLED_APPS = [
+    # Django core
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
 
-    # Bên thứ ba
+    # Thứ ba
     'rest_framework',
     'django_filters',
-    'corsheaders',  # App cho CORS
-
-    # App của bạn
-    'todo',
-    
-    # Apps cho Authentication
+    'corsheaders',
     'rest_framework.authtoken',
-    'dj_rest_auth',
-    'django.contrib.sites', # Cần cho dj-rest-auth
+
+    # Auth
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.github',
+
+    'dj_rest_auth',
     'dj_rest_auth.registration',
+
+    # App của bạn
+    'todo',
 ]
+
+
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # Luôn ở trên cùng
@@ -137,3 +142,20 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = True
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False # Rất quan trọng
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+            "secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
+            "key": ""
+        }
+    },
+    "github": {
+        "APP": {
+            "client_id": os.environ.get("GITHUB_CLIENT_ID"),
+            "secret": os.environ.get("GITHUB_CLIENT_SECRET"),
+            "key": ""
+        }
+    },
+}
