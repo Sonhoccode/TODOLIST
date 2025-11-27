@@ -108,11 +108,14 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# --- CẤU HÌNH CORS (CHO PHÉP REACT) ---
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000", # Port React của bạn
-    "http://127.0.0.1:3000",
+    "http://localhost:3000",
+    "https://localhost:3000",
+    "https://hsonspace.id.vn",
+    "https://api.hsonspace.id.vn",          # <- sửa chỗ này
+    "https://todolist-production-215a.up.railway.app",
 ]
+
 
 # --- CẤU HÌNH REST FRAMEWORK (DÙNG TOKEN AUTH) ---
 REST_FRAMEWORK = {
