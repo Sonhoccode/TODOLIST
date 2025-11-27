@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
+# ================== ENVIRONMENT ==================
 # ENVIRONMENT: local | production
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "local")
 
@@ -59,7 +60,6 @@ INSTALLED_APPS = [
 ]
 
 
-
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # Luôn ở trên cùng
     'django.middleware.security.SecurityMiddleware',
@@ -69,7 +69,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware', # Thêm cho allauth
+    'allauth.account.middleware.AccountMiddleware',  # Thêm cho allauth
 ]
 
 ROOT_URLCONF = 'djangostart.urls'
@@ -92,7 +92,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'djangostart.wsgi.application'
 
 
-# --- CẤU HÌNH DATABASE (ĐỌC TỪ .ENV) ---
+# ================== DATABASE ==================
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -100,27 +100,28 @@ DATABASES = {
         'USER': os.environ.get('DB_USER'),
         'PASSWORD': os.environ.get('DB_PASSWORD'),
         'HOST': os.environ.get('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
 
-# --- VÔ HIỆU HÓA BỘ LỌC MẬT KHẨU (ĐỂ TEST) ---
+# ================== PASSWORD VALIDATORS ==================
+# Đang để trống để test cho dễ
 AUTH_PASSWORD_VALIDATORS = []
 
 
-# Internationalization
+# ================== I18N ==================
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Asia/Ho_Chi_Minh' # <-- Đổi sang giờ Việt Nam
+TIME_ZONE = 'Asia/Ho_Chi_Minh'  # giờ Việt Nam
 USE_I18N = True
-USE_TZ = True # Giữ True để lưu giờ UTC (chuẩn)
+USE_TZ = True  # lưu UTC
 
 
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# --- CẤU HÌNH CORS / CSRF ---
+# ================== CORS / CSRF ==================
 # Frontend chính (local hoặc production)
 FRONTEND_ORIGIN = os.environ.get(
     "FRONTEND_ORIGIN",
@@ -128,33 +129,43 @@ FRONTEND_ORIGIN = os.environ.get(
 )
 
 # Backend origin – dùng cho CSRF_TRUSTED_ORIGINS (Railway hoặc api.hsonspace.id.vn)
-BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN")  # vd: "https://<railway>.up.railway.app"
+BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN")  # vd: "https://api.hsonspace.id.vn"
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://localhost:3000",
-    "https://hsonspace.id.vn",
-    "api.hsonspace.id.vn",
-    "https://todolist-production-215a.up.railway.app",
-]
+CORS_ALLOWED_ORIGINS = []
 
+# Cho phép frontend gọi vào
+if FRONTEND_ORIGIN:
+    CORS_ALLOWED_ORIGINS.append(FRONTEND_ORIGIN)
+
+# Cho phép backend tự gọi chính nó (nếu cần)
+if BACKEND_ORIGIN:
+    CORS_ALLOWED_ORIGINS.append(BACKEND_ORIGIN)
+
+# Nếu cần thêm origin khác thì set EXTRA_CORS_ORIGINS="https://foo,https://bar" trong env
+extra_cors = os.environ.get("EXTRA_CORS_ORIGINS", "")
+if extra_cors:
+    CORS_ALLOWED_ORIGINS.extend(
+        [o.strip() for o in extra_cors.split(",") if o.strip()]
+    )
 
 # Nếu sau này cần cookie / session thì bật cái này
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://hsonspace.id.vn",
-    "https://www.hsonspace.id.vn",  # optional nếu có dùng
-    "https://todolist-production-215a.up.railway.app",
-]
+CSRF_TRUSTED_ORIGINS = []
+
+# Cả frontend và backend (nếu có https://...) đều được trust
+for origin in [FRONTEND_ORIGIN, BACKEND_ORIGIN]:
+    if origin and origin.startswith("http"):
+        CSRF_TRUSTED_ORIGINS.append(origin)
+
+extra_csrf = os.environ.get("EXTRA_CSRF_ORIGINS", "")
+if extra_csrf:
+    CSRF_TRUSTED_ORIGINS.extend(
+        [o.strip() for o in extra_csrf.split(",") if o.strip()]
+    )
 
 
-
-if BACKEND_ORIGIN:
-    CSRF_TRUSTED_ORIGINS.append(BACKEND_ORIGIN)
-
-
-# --- CẤU HÌNH REST FRAMEWORK (DÙNG TOKEN AUTH) ---
+# ================== REST FRAMEWORK ==================
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -168,33 +179,35 @@ REST_FRAMEWORK = {
 
 SITE_ID = 1
 
-# --- EMAIL GỬI THẬT BẰNG GMAIL ---
-if DEBUG:
+
+# ================== EMAIL ==================
+# Local: in mail ra console; Production: dùng SMTP qua env (Zoho / Gmail đều được)
+if DEBUG and ENVIRONMENT == "local":
     # local / debug: in mail ra console cho dễ test
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 else:
-    # production: gửi thật qua Gmail
+    # production: gửi thật qua SMTP (m set trong env)
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-    EMAIL_HOST = "smtp.gmail.com"
-    EMAIL_PORT = 587
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")      # Gmail
-    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")  # App password
+    EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.zoho.com")
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")      # vd: adminspace@hsonspace.id.vn
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")  # app password
     DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
- 
 
-# 1. Cài đặt cho allauth (Cú pháp MỚI, sửa lỗi CRITICAL và WARNINGS)
+
+# ================== ALLAUTH / DJ-REST-AUTH ==================
+# 1. Cú pháp mới cho allauth
 ACCOUNT_LOGIN_METHODS = ['username']
-ACCOUNT_SIGNUP_FIELDS = ['username', 'email'] # 'password' được ngầm định
+ACCOUNT_SIGNUP_FIELDS = ['username', 'email']  # 'password' được ngầm định
 
-# 2. Cài đặt cho dj-rest-auth (Cú pháp CŨ, nhưng bắt buộc)
-#    (Các cài đặt này sẽ gây ra WARNINGS, nhưng cần thiết để dj-rest-auth hoạt động)
+# 2. Cú pháp cũ cho dj-rest-auth (bắt buộc, dù có warnings)
 ACCOUNT_AUTHENTICATION_METHOD = 'username'
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False # Rất quan trọng
+ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False  # Rất quan trọng
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
