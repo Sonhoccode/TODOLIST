@@ -138,8 +138,10 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    FRONTEND_ORIGIN,
+    "todolist-production-215a.up.railway.app",
+    "hsonspace.id.vn",
 ]
+
 
 if BACKEND_ORIGIN:
     CSRF_TRUSTED_ORIGINS.append(BACKEND_ORIGIN)
