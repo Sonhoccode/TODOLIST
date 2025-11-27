@@ -134,6 +134,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://localhost:3000",
     "https://hsonspace.id.vn",
+    "api.hsonspace.id.vn",
     "https://todolist-production-215a.up.railway.app",
 ]
 
