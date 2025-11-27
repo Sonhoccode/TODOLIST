@@ -1,4 +1,5 @@
-from datetime import datetime
+# todo/views.py
+from datetime import datetime, timedelta
 import csv
 import io
 import json
@@ -10,6 +11,8 @@ from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
+from django.core.mail import send_mail
+from django.conf import settings
 
 from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action, api_view, permission_classes
@@ -40,6 +43,8 @@ from .services.ai import predict_task_on_time
 from .services.chatbot import TaskChatbot
 
 
+# ============== Category ==============
+
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
@@ -50,6 +55,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+
+# ============== Notification Setting ==============
 
 class NotificationSettingViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSettingSerializer
@@ -66,17 +73,27 @@ class NotificationSettingViewSet(viewsets.ModelViewSet):
         serializer.save(owner=self.request.user)
 
 
+# ============== Todo ==============
+
 class TodoViewSet(viewsets.ModelViewSet):
     serializer_class = TodoSerializer
     permission_classes = [IsAuthenticated]
 
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     search_fields = ["title", "description", "tags"]
     filterset_fields = ["created_at", "due_at", "priority", "category", "completed"]
     ordering_fields = ["created_at", "due_at", "priority"]
 
     def get_queryset(self):
-        return Todo.objects.filter(owner=self.request.user).order_by("-created_at")
+        return (
+            Todo.objects.filter(owner=self.request.user)
+            .select_related("category")
+            .order_by("-created_at")
+        )
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -132,14 +149,17 @@ class TodoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Lấy task, đảm bảo thuộc về user đang login
         todo = get_object_or_404(Todo, id=todo_id, owner=request.user)
 
+        # Không cho share cho chính mình
         if shared_to_email == request.user.email:
             return Response(
                 {"error": "Không thể chia sẻ task cho chính bạn"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Tìm user nhận share bằng email
         try:
             shared_to_user = User.objects.get(email=shared_to_email)
         except User.DoesNotExist:
@@ -148,6 +168,7 @@ class TodoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Tạo share_link ngắn
         share_link = str(uuid.uuid4())[:8]
 
         task_share, created = TaskShare.objects.update_or_create(
@@ -158,6 +179,32 @@ class TodoViewSet(viewsets.ModelViewSet):
                 "permission": permission,
                 "share_link": share_link,
             },
+        )
+
+        # Gửi mail mời
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+        share_url = f"{frontend_url}/share/{share_link}"
+
+        subject = f"{request.user.username} đã chia sẻ một task cho bạn"
+        message = f"""
+Chào {shared_to_user.username},
+
+{request.user.username} vừa chia sẻ cho bạn một task:
+
+- Tiêu đề: {todo.title}
+- Mô tả: {todo.description}
+- Quyền: {permission}
+
+Nhấn vào link sau để xem và chấp nhận:
+{share_url}
+"""
+
+        send_mail(
+            subject,
+            message,
+            None,
+            [shared_to_user.email],
+            fail_silently=True,
         )
 
         serializer = TaskShareSerializer(task_share)
@@ -179,6 +226,8 @@ class TodoViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+# ============== Share link public & accept ==============
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def share_link_view(request, share_link):
@@ -186,7 +235,8 @@ def share_link_view(request, share_link):
         ts = TaskShare.objects.get(share_link=share_link)
     except TaskShare.DoesNotExist:
         return Response(
-            {"error": "Share link không tồn tại"}, status=status.HTTP_404_NOT_FOUND
+            {"error": "Share link không tồn tại"},
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     data = {
@@ -199,71 +249,99 @@ def share_link_view(request, share_link):
     }
     return Response(data)
 
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def accept_share(request, share_link):
+    try:
+        ts = TaskShare.objects.get(share_link=share_link, shared_to=request.user)
+    except TaskShare.DoesNotExist:
+        return Response(
+            {"error": "Share link không hợp lệ hoặc không thuộc về bạn"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    ts.accepted = True
+    ts.save()
+
+    return Response({"status": "accepted"})
+
+
+# ============== Report ==============
+
 class ReportViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
-    @action(detail=False, methods=['get'], url_path='progress')
+    @action(detail=False, methods=["get"], url_path="progress")
     def progress_report(self, request):
         user = request.user
-        todos = Todo.objects.filter(owner=user)
+        todos = Todo.objects.filter(owner=user).only("id", "completed")
 
         total = todos.count()
         completed = todos.filter(completed=True).count()
         in_progress = total - completed
 
         data = {
-            'total_tasks': total,
-            'completed_tasks': completed,
-            'incomplete_tasks': in_progress,
-            'completion_rate': (completed / total * 100) if total else 0,
+            "total_tasks": total,
+            "completed_tasks": completed,
+            "incomplete_tasks": in_progress,
+            "completion_rate": (completed / total * 100) if total else 0,
         }
         return Response(data)
 
-    @action(detail=False, methods=['get'], url_path='timeline')
+    @action(detail=False, methods=["get"], url_path="timeline")
     def timeline_report(self, request):
         user = request.user
-        # thống kê theo ngày tạo
-        todos = Todo.objects.filter(owner=user).order_by('created_at')
+        todos = (
+            Todo.objects.filter(owner=user)
+            .only("id", "created_at", "completed")
+            .order_by("created_at")
+        )
         timeline = {}
 
         for t in todos:
             key = t.created_at.date().isoformat()
             if key not in timeline:
-                timeline[key] = {'created': 0, 'completed': 0}
-            timeline[key]['created'] += 1
+                timeline[key] = {"created": 0, "completed": 0}
+            timeline[key]["created"] += 1
             if t.completed:
-                timeline[key]['completed'] += 1
+                timeline[key]["completed"] += 1
 
         result = [
-            {'date': k, 'created': v['created'], 'completed': v['completed']}
+            {"date": k, "created": v["created"], "completed": v["completed"]}
             for k, v in sorted(timeline.items())
         ]
         return Response(result)
 
-    @action(detail=False, methods=['get'], url_path='by-priority')
+    @action(detail=False, methods=["get"], url_path="by-priority")
     def by_priority_report(self, request):
         user = request.user
-        todos = Todo.objects.filter(owner=user)
+        todos = Todo.objects.filter(owner=user).only(
+            "id", "priority", "completed"
+        )
 
         stats = {}
         for t in todos:
             p = t.priority
             if p not in stats:
-                stats[p] = {'priority': p, 'total': 0, 'completed': 0}
-            stats[p]['total'] += 1
+                stats[p] = {"priority": p, "total": 0, "completed": 0}
+            stats[p]["total"] += 1
             if t.completed:
-                stats[p]['completed'] += 1
+                stats[p]["completed"] += 1
 
         result = []
         for p, info in stats.items():
-            total = info['total']
-            completed = info['completed']
-            info['completion_rate'] = (completed / total * 100) if total else 0
+            total = info["total"]
+            completed = info["completed"]
+            info["completion_rate"] = (completed / total * 100) if total else 0
             result.append(info)
 
         return Response(result)
 
-@api_view(['POST'])
+
+# ============== AI Predict ==============
+
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def predict_task_completion(request):
     """
@@ -275,7 +353,6 @@ def predict_task_completion(request):
         data = json.loads(request.body.decode())
     except Exception:
         return HttpResponseBadRequest("JSON không hợp lệ")
-    data = request.data
 
     task_id = data.get("task_id")
     if task_id:
@@ -308,10 +385,14 @@ def predict_task_completion(request):
         @property
         def priority_numeric(self):
             mapping = {
-                "Low": 1, "low": 1,
-                "Medium": 2, "medium": 2,
-                "High": 3, "high": 3,
-                "Urgent": 3, "urgent": 3,
+                "Low": 1,
+                "low": 1,
+                "Medium": 2,
+                "medium": 2,
+                "High": 3,
+                "high": 3,
+                "Urgent": 3,
+                "urgent": 3,
             }
             return mapping.get(self.priority, 2)
 
@@ -319,7 +400,10 @@ def predict_task_completion(request):
     result = predict_task_on_time(task, extra_data=data, return_confidence=True)
     return Response(result)
 
-@api_view(['POST'])
+
+# ============== Chatbot tạo task ==============
+
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def chatbot_create_task(request):
     """
@@ -334,21 +418,21 @@ def chatbot_create_task(request):
     chatbot = TaskChatbot()
     task_data = chatbot.parse_message(message)
 
-    task_data['owner'] = request.user
-    task_data['completed'] = False
-    task_data['tags'] = ''
+    task_data["owner"] = request.user
+    task_data["completed"] = False
+    task_data["tags"] = ""
 
-    if task_data.get('due_at'):
-        task_data['due_at'] = datetime.fromisoformat(task_data['due_at'])
+    if task_data.get("due_at"):
+        task_data["due_at"] = timezone.datetime.fromisoformat(task_data["due_at"])
 
     todo = Todo.objects.create(
         owner=request.user,
-        title=task_data.get('title', 'Task mới'),
-        description=task_data.get('description', ''),
-        due_at=task_data.get('due_at'),
-        priority=task_data.get('priority', 'Medium'),
+        title=task_data.get("title", "Task mới"),
+        description=task_data.get("description", ""),
+        due_at=task_data.get("due_at"),
+        priority=task_data.get("priority", "Medium"),
         completed=False,
-        tags='',
+        tags="",
     )
 
     prediction = None
@@ -359,23 +443,28 @@ def chatbot_create_task(request):
 
     response_text = chatbot.generate_response(
         TodoSerializer(todo).data,
-        prediction
+        prediction,
     )
 
-    return JsonResponse({
-        'task': TodoSerializer(todo).data,
-        'response': response_text,
-        'prediction': prediction
-    })
+    return JsonResponse(
+        {
+            "task": TodoSerializer(todo).data,
+            "response": response_text,
+            "prediction": prediction,
+        }
+    )
+
+
+# ============== Public Auth Views ==============
 
 class PublicRegisterView(RegisterView):
-    authentication_classes = []     
+    authentication_classes = []
     permission_classes = [AllowAny]
-    
+
+
 class PublicLoginView(LoginView):
     """
     Login không yêu cầu token, cho phép anonymous.
     """
-    authentication_classes = []      # TẮT TokenAuthentication ở đây
+    authentication_classes = []
     permission_classes = [AllowAny]
-

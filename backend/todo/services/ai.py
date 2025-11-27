@@ -1,9 +1,15 @@
+# todo/services/ai.py
 import os
 import joblib
 import threading
 import numpy as np
 
-DEFAULT_MODEL_PATH = os.getenv("AI_MODEL_PATH", os.path.join(os.path.dirname(__file__), "model.pkl"))
+# AI_MODEL_PATH: đường dẫn tới file model.pkl (train trước)
+DEFAULT_MODEL_PATH = os.getenv(
+    "AI_MODEL_PATH",
+    os.path.join(os.path.dirname(__file__), "model.pkl"),
+)
+
 
 class _ModelHolder:
     _instance = None
@@ -19,7 +25,6 @@ class _ModelHolder:
         return cls._instance
 
 
-# todo/services/ai.py
 def features_from_task(task, extra_data=None):
     """
     Trích xuất đặc trưng đầu vào từ task hoặc JSON request.
@@ -70,6 +75,9 @@ def predict_task_on_time(task, extra_data=None, return_confidence=False):
 
     if return_confidence and hasattr(model, "predict_proba"):
         prob = model.predict_proba(feats)[0][1]
-        return {"on_time_prediction": int(pred), "confidence": round(float(prob), 2)}
+        return {
+            "on_time_prediction": int(pred),
+            "confidence": round(float(prob), 2),
+        }
 
     return int(pred)

@@ -1,19 +1,31 @@
 from pathlib import Path
 import os
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- TẢI BIẾN MÔI TRƯỜNG ---
-load_dotenv(os.path.join(BASE_DIR, '.env'))
+SOCIALACCOUNT_LOGIN_ON_GET = True
 
+# ENVIRONMENT: local | production
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "local")
 
-# --- LẤY BIẾN TỪ .ENV ---
-SECRET_KEY = os.environ.get('SECRET_KEY')
+# Local thì load .env, Railway thì không cần (Railway inject env trực tiếp)
+if ENVIRONMENT == "local":
+    load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-DEBUG = True
-ALLOWED_HOSTS = []
+# Secret key
+SECRET_KEY = os.environ.get("SECRET_KEY")
+
+# DEBUG: set qua env, mặc định True cho local
+DEBUG = os.environ.get("DEBUG", "True") == "True"
+
+# ALLOWED_HOSTS: đọc từ env, dạng: "localhost,127.0.0.1,api.hsonspace.id.vn"
+raw_hosts = os.environ.get("ALLOWED_HOSTS", "")
+if raw_hosts:
+    ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(",") if h.strip()]
+else:
+    # fallback cho local
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 INSTALLED_APPS = [
@@ -108,11 +120,30 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# --- CẤU HÌNH CORS (CHO PHÉP REACT) ---
+# --- CẤU HÌNH CORS / CSRF ---
+# Frontend chính (local hoặc production)
+FRONTEND_ORIGIN = os.environ.get(
+    "FRONTEND_ORIGIN",
+    "http://localhost:3000",  # mặc định local
+)
+
+# Backend origin – dùng cho CSRF_TRUSTED_ORIGINS (Railway hoặc api.hsonspace.id.vn)
+BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN")  # vd: "https://<railway>.up.railway.app"
+
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000", # Port React của bạn
-    "http://127.0.0.1:3000",
+    FRONTEND_ORIGIN,
 ]
+
+# Nếu sau này cần cookie / session thì bật cái này
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    FRONTEND_ORIGIN,
+]
+
+if BACKEND_ORIGIN:
+    CSRF_TRUSTED_ORIGINS.append(BACKEND_ORIGIN)
+
 
 # --- CẤU HÌNH REST FRAMEWORK (DÙNG TOKEN AUTH) ---
 REST_FRAMEWORK = {
@@ -126,9 +157,22 @@ REST_FRAMEWORK = {
     ]
 }
 
-# --- CẤU HÌNH ALLAUTH (ĐỂ TẮT XÁC THỰC EMAIL) ---
 SITE_ID = 1
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' 
+
+# --- EMAIL GỬI THẬT BẰNG GMAIL ---
+if DEBUG:
+    # local / debug: in mail ra console cho dễ test
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    # production: gửi thật qua Gmail
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = "smtp.gmail.com"
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")      # Gmail
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")  # App password
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+ 
 
 # 1. Cài đặt cho allauth (Cú pháp MỚI, sửa lỗi CRITICAL và WARNINGS)
 ACCOUNT_LOGIN_METHODS = ['username']

@@ -1,3 +1,4 @@
+# todo/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
@@ -11,6 +12,7 @@ from .views import (
     chatbot_create_task,
     PublicLoginView,
     PublicRegisterView,
+    accept_share,
 )
 
 router = DefaultRouter()
@@ -24,27 +26,40 @@ router.register(
 )
 
 urlpatterns = [
-    
-    path("todos/predict/", predict_task_completion, name="predict-task"),
-    path("todos/chatbot/", chatbot_create_task, name="chatbot-create-task"),
-    # Routers cơ bản
+    # Routers cơ bản (CRUD todo, category, report, notification)
     path("", include(router.urls)),
 
-    # Share link public
+    # Share link public – xem thông tin share (không cần login)
     path(
         "todos/share-link/<str:share_link>/",
         share_link_view,
         name="todos-share-link",
     ),
-    
-        # auth chuẩn
+
+    # Accept share (phải login)
+    path(
+        "todos/share-link/<str:share_link>/accept/",
+        accept_share,
+        name="todos-share-accept",
+    ),
+
+    # Auth chuẩn (token, password reset, social, ...)
     path("dj-rest-auth/", include("dj_rest_auth.urls")),
     path("dj-rest-auth/registration/", include("dj_rest_auth.registration.urls")),
 
-    
-    path("accounts/", include("allauth.urls")),
+    # API AI
+    path(
+        "todos/predict/",
+        predict_task_completion,
+        name="predict-task",
+    ),
+    path(
+        "todos/chatbot/",
+        chatbot_create_task,
+        name="chatbot-create-task",
+    ),
 
-    # Auth public (không cần token)
+    # Auth public (login/register REST, không cần token sẵn)
     path(
         "auth/login/",
         PublicLoginView.as_view(),
