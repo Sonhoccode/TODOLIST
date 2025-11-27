@@ -6,6 +6,7 @@ python-dotenv
 dj-database-url
 cryptography>=41.0.0
 joblib==1.4.2 
+numpy
 
 # API Features
 django-filter
