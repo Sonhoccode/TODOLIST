@@ -131,16 +131,22 @@ FRONTEND_ORIGIN = os.environ.get(
 BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN")  # vd: "https://<railway>.up.railway.app"
 
 CORS_ALLOWED_ORIGINS = [
-    FRONTEND_ORIGIN,
+    "http://localhost:3000",
+    "https://localhost:3000",
+    "https://hsonspace.id.vn",
+    "https://todolist-production-215a.up.railway.app",
 ]
+
 
 # Nếu sau này cần cookie / session thì bật cái này
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "todolist-production-215a.up.railway.app",
-    "hsonspace.id.vn",
+    "https://hsonspace.id.vn",
+    "https://www.hsonspace.id.vn",  # optional nếu có dùng
+    "https://todolist-production-215a.up.railway.app",
 ]
+
 
 
 if BACKEND_ORIGIN:
