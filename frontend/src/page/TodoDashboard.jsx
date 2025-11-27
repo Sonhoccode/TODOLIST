@@ -20,6 +20,8 @@ import {
 import { logout } from "../api/auth";
 import { predictTaskCompletion, prepareAIPredictionData } from "../api/ai";
 import { sendChatMessage } from "../api/chatbot";
+import { getNotificationByTodo, saveNotificationForTodo } from "../api/notifications";
+import { shareTask } from "../api/share";
 
 // ================== Helper ==================
 
@@ -35,6 +37,8 @@ const emptyForm = {
   remind_time: "",
   completed: false,
   category: "",
+  notification_enabled: false,
+  notification_minutes: 30,
 };
 
 function toLocalInputString(isoString) {
@@ -147,13 +151,18 @@ export default function TodoDashboard() {
   const [progress, setProgress] = useState(null);
   const [priorityStats, setPriorityStats] = useState([]);
 
-  // ===== AI state =====
+  // AI state
   const [aiPrediction, setAiPrediction] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
   const [chatMessage, setChatMessage] = useState("");
   const [chatResult, setChatResult] = useState(null);
   const [chatLoading, setChatLoading] = useState(false);
+
+  // Share state
+  const [sharingTask, setSharingTask] = useState(null);
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareError, setShareError] = useState("");
 
   // ================== Load data ==================
 
@@ -224,7 +233,7 @@ export default function TodoDashboard() {
     setOpenEdit(true);
   }
 
-  function openUpdate(t) {
+  async function openUpdate(t) {
     setEditingId(t.id);
     const { date: due_date, time: due_time } = splitDateTime(t.due_at);
 
@@ -232,7 +241,8 @@ export default function TodoDashboard() {
     const remindISO = isDaily ? null : t.remind_at;
     const { date: remind_date, time: remind_time } = splitDateTime(remindISO);
 
-    setForm({
+    setForm((prev) => ({
+      ...prev,
       title: t.title || "",
       description: t.description || "",
       due_date: due_date,
@@ -244,17 +254,34 @@ export default function TodoDashboard() {
       tags: (t.tags || []).join(", "),
       completed: !!t.completed,
       category: t.category || "",
-    });
+      notification_enabled: false,
+      notification_minutes: 30,
+    }));
     setAiPrediction(null);
     setOpenEdit(true);
+
+    // load notification từ backend
+    try {
+      const notif = await getNotificationByTodo(t.id);
+      if (notif) {
+        setForm((prev) => ({
+          ...prev,
+          notification_enabled: !!notif.enabled,
+          notification_minutes:
+            typeof notif.reminder_minutes === "number"
+              ? notif.reminder_minutes
+              : 30,
+        }));
+      }
+    } catch (err) {
+      console.error("Lỗi load notification:", err);
+    }
   }
 
   function toPayload(f) {
     let due_at_payload = null;
     if (f.due_date && f.due_time) {
-      due_at_payload = new Date(
-        `${f.due_date}T${f.due_time}`
-      ).toISOString();
+      due_at_payload = new Date(`${f.due_date}T${f.due_time}`).toISOString();
     } else if (f.due_date) {
       due_at_payload = new Date(f.due_date).toISOString();
     }
@@ -297,10 +324,24 @@ export default function TodoDashboard() {
     const payload = toPayload(form);
     if (!payload.title) return alert("Tiêu đề không được trống.");
 
+    let taskId = editingId;
+    let savedTask = null;
+
     if (editingId == null) {
-      await createTask(payload);
+      savedTask = await createTask(payload);
+      taskId = savedTask.id;
     } else {
-      await updateTask(editingId, payload);
+      savedTask = await updateTask(editingId, payload);
+    }
+
+    try {
+      await saveNotificationForTodo(
+        taskId,
+        form.notification_enabled,
+        Number(form.notification_minutes) || 0
+      );
+    } catch (err) {
+      console.error("Lỗi lưu notification:", err);
     }
 
     setOpenEdit(false);
@@ -388,9 +429,7 @@ export default function TodoDashboard() {
       await load();
     } catch (err) {
       console.error("Lỗi khi xoá category:", err);
-      alert(
-        "Đã xảy ra lỗi khi xoá danh mục. (Có thể do vẫn còn công việc liên quan?)"
-      );
+      alert("Đã xảy ra lỗi khi xoá danh mục. (Có thể do vẫn còn công việc liên quan?)");
       setDeletingCategory(null);
     }
   }
@@ -416,9 +455,7 @@ export default function TodoDashboard() {
     try {
       let due_at = null;
       if (form.due_date && form.due_time) {
-        due_at = new Date(
-          `${form.due_date}T${form.due_time}`
-        ).toISOString();
+        due_at = new Date(`${form.due_date}T${form.due_time}`).toISOString();
       } else if (form.due_date) {
         due_at = new Date(form.due_date).toISOString();
       }
@@ -461,13 +498,39 @@ export default function TodoDashboard() {
     }
   }
 
+  // ================== Share actions ==================
+
+  const openShare = (task) => {
+    setSharingTask(task);
+    setShareEmail("");
+    setShareError("");
+  };
+
+  const handleConfirmShare = async () => {
+    if (!sharingTask) return;
+    const email = shareEmail.trim();
+    if (!email) {
+      setShareError("Email không được để trống.");
+      return;
+    }
+
+    try {
+      await shareTask(sharingTask.id, email, "view");
+      alert("Đã chia sẻ công việc.");
+      setSharingTask(null);
+      setShareEmail("");
+      setShareError("");
+    } catch (err) {
+      console.error("Lỗi chia sẻ task:", err);
+      setShareError(err.response?.data?.error || "Không thể chia sẻ, thử lại sau.");
+    }
+  };
+
   // ================== useMemo view ==================
 
   const availableTags = useMemo(() => {
     const s = new Set();
-    (tasks || []).forEach((t) =>
-      (t.tags || []).forEach((x) => s.add(x))
-    );
+    (tasks || []).forEach((t) => (t.tags || []).forEach((x) => s.add(x)));
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [tasks]);
 
@@ -484,9 +547,7 @@ export default function TodoDashboard() {
 
       if (t.daily_reminder_time) {
         isDaily = true;
-        const [hours, minutes] = t.daily_reminder_time
-          .split(":")
-          .map(Number);
+        const [hours, minutes] = t.daily_reminder_time.split(":").map(Number);
         const reminderToday = new Date();
         reminderToday.setHours(hours, minutes, 0, 0);
 
@@ -528,9 +589,7 @@ export default function TodoDashboard() {
 
     if (selectedTags.length > 0) {
       data = data.filter((t) =>
-        selectedTags.every((tag) =>
-          (t.tags || []).includes(tag)
-        )
+        selectedTags.every((tag) => (t.tags || []).includes(tag))
       );
     }
 
@@ -540,9 +599,7 @@ export default function TodoDashboard() {
         (t) =>
           t.title?.toLowerCase().includes(q) ||
           t.description?.toLowerCase().includes(q) ||
-          (t.tags || []).some((x) =>
-            x.toLowerCase().includes(q)
-          )
+          (t.tags || []).some((x) => x.toLowerCase().includes(q))
       );
     }
 
@@ -557,9 +614,7 @@ export default function TodoDashboard() {
       );
     } else if (sortBy === "created_at") {
       data = [...data].sort((a, b) =>
-        (a.created_at || "").localeCompare(
-          b.created_at || ""
-        )
+        (a.created_at || "").localeCompare(b.created_at || "")
       );
     }
 
@@ -572,7 +627,7 @@ export default function TodoDashboard() {
     <div className="min-h-screen bg-gray-50">
       <Header onCreate={openCreate} />
 
-      <div className="max-w-7xl mx-auto px-6 py-6 flex gap-6">
+      <div className="layout-container mx-auto px-6 py-16 flex gap-6">
         <Sidebar
           status={status}
           setStatus={setStatus}
@@ -591,9 +646,7 @@ export default function TodoDashboard() {
           nextReminders={nextReminders}
         />
 
-        {/* Khu vực nội dung + AI, Header không bị che vì vẫn nằm bên trên hết */}
         <div className="flex-1 flex gap-6">
-          {/* Cột chính: danh sách task */}
           <section className="flex-1 space-y-4">
             <div className="bg-white border rounded-2xl p-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -620,9 +673,7 @@ export default function TodoDashboard() {
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="text-sm text-gray-600">
-                  Sắp xếp
-                </label>
+                <label className="text-sm text-gray-600">Sắp xếp</label>
                 <select
                   className="rounded-lg border px-3 py-2 bg-white text-sm"
                   value={sortBy}
@@ -646,6 +697,7 @@ export default function TodoDashboard() {
                 onToggle={onToggle}
                 onEdit={openUpdate}
                 onDelete={onDelete}
+                onShare={openShare}
               />
             ) : (
               <TaskGrid
@@ -653,11 +705,11 @@ export default function TodoDashboard() {
                 onToggle={onToggle}
                 onEdit={openUpdate}
                 onDelete={onDelete}
+                onShare={openShare}
               />
             )}
           </section>
 
-          {/* Cột phải: Trợ lý AI tạo công việc */}
           <aside className="w-[340px] shrink-0 space-y-4">
             <div className="bg-white border rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -666,22 +718,16 @@ export default function TodoDashboard() {
                     Trợ lý AI tạo công việc
                   </h2>
                   <p className="text-xs text-gray-600">
-                    Ví dụ: “Nhắc học Python 2 tiếng tối mai”, AI
-                    sẽ tự phân tích và tạo task.
+                    Ví dụ: “Nhắc học Python 2 tiếng tối mai”, AI sẽ tự phân tích và tạo task.
                   </p>
                 </div>
               </div>
 
-              <form
-                onSubmit={handleChatSubmit}
-                className="space-y-2"
-              >
+              <form onSubmit={handleChatSubmit} className="space-y-2">
                 <textarea
                   rows={6}
                   value={chatMessage}
-                  onChange={(e) =>
-                    setChatMessage(e.target.value)
-                  }
+                  onChange={(e) => setChatMessage(e.target.value)}
                   placeholder="Nhập yêu cầu của bạn..."
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500"
                 />
@@ -691,36 +737,25 @@ export default function TodoDashboard() {
                     disabled={chatLoading}
                     className="px-3 py-2 rounded-lg bg-black text-white text-xs"
                   >
-                    {chatLoading
-                      ? "AI đang xử lý..."
-                      : "Gửi cho AI"}
+                    {chatLoading ? "AI đang xử lý..." : "Gửi cho AI"}
                   </button>
                 </div>
               </form>
 
               {chatResult && (
                 <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs space-y-1">
-                  {chatResult.response && (
-                    <p>{chatResult.response}</p>
-                  )}
+                  {chatResult.response && <p>{chatResult.response}</p>}
 
                   {chatResult.task && (
                     <div className="space-y-1">
-                      <div className="font-medium">
-                        Task vừa tạo:
-                      </div>
-                      <div>
-                        Tiêu đề: {chatResult.task.title}
-                      </div>
+                      <div className="font-medium">Task vừa tạo:</div>
+                      <div>Tiêu đề: {chatResult.task.title}</div>
                       {chatResult.task.description && (
                         <div>
-                          Mô tả:{" "}
-                          {chatResult.task.description}
+                          Mô tả: {chatResult.task.description}
                         </div>
                       )}
-                      <div>
-                        Ưu tiên: {chatResult.task.priority}
-                      </div>
+                      <div>Ưu tiên: {chatResult.task.priority}</div>
                       {chatResult.task.due_at && (
                         <div>
                           Đến hạn:{" "}
@@ -735,16 +770,11 @@ export default function TodoDashboard() {
                   {chatResult.prediction && (
                     <div className="mt-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-900">
                       Xác suất hoàn thành đúng hạn:{" "}
-                      {(
-                        chatResult.prediction
-                          .on_time_prediction * 100
-                      ).toFixed(1)}
+                      {(chatResult.prediction.on_time_prediction * 100).toFixed(
+                        1
+                      )}
                       % (độ tin cậy{" "}
-                      {(
-                        chatResult.prediction.confidence *
-                        100
-                      ).toFixed(1)}
-                      %)
+                      {(chatResult.prediction.confidence * 100).toFixed(1)}%)
                     </div>
                   )}
                 </div>
@@ -761,11 +791,7 @@ export default function TodoDashboard() {
           setOpenEdit(false);
           setAiPrediction(null);
         }}
-        title={
-          editingId == null
-            ? "Thêm công việc"
-            : "Cập nhật công việc"
-        }
+        title={editingId == null ? "Thêm công việc" : "Cập nhật công việc"}
         footer={
           <>
             <button
@@ -773,9 +799,7 @@ export default function TodoDashboard() {
               className="px-3 py-2 rounded-lg border text-xs hover:bg-gray-50"
               disabled={aiLoading}
             >
-              {aiLoading
-                ? "AI đang dự đoán..."
-                : "AI dự đoán hoàn thành"}
+              {aiLoading ? "AI đang dự đoán..." : "AI dự đoán hoàn thành"}
             </button>
             <button
               onClick={() => {
@@ -795,7 +819,7 @@ export default function TodoDashboard() {
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-1 gap-1">
           <Field label="Tiêu đề">
             <input
               className="w-full rounded-lg border px-3 py-2"
@@ -907,6 +931,44 @@ export default function TodoDashboard() {
             <span>Nhắc hằng ngày (chỉ dùng giờ)</span>
           </label>
 
+          <div className="mt-1 rounded-lg border px-3 py-2">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.notification_enabled}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    notification_enabled: e.target.checked,
+                  })
+                }
+              />
+              <span>Bật nhắc nhở qua email</span>
+            </label>
+
+            {form.notification_enabled && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-sm text-gray-700">
+                  Gửi email trước
+                </span>
+                <input
+                  type="number"
+                  min={5}
+                  step={5}
+                  className="w-24 rounded-lg border px-2 py-1 text-sm"
+                  value={form.notification_minutes}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      notification_minutes: e.target.value,
+                    })
+                  }
+                />
+                <span className="text-sm text-gray-700">phút</span>
+              </div>
+            )}
+          </div>
+
           <div className="grid md:grid-cols-2 gap-3">
             <Field label="Ưu tiên">
               <select
@@ -992,9 +1054,7 @@ export default function TodoDashboard() {
           {aiPrediction && (
             <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
               Xác suất hoàn thành đúng hạn:{" "}
-              {(aiPrediction.on_time_prediction * 100).toFixed(
-                1
-              )}
+              {(aiPrediction.on_time_prediction * 100).toFixed(1)}
               % (độ tin cậy{" "}
               {(aiPrediction.confidence * 100).toFixed(1)}%)
             </div>
@@ -1081,6 +1141,54 @@ export default function TodoDashboard() {
         )}
       </Modal>
 
+      {/* Modal Share Task */}
+      <Modal
+        open={!!sharingTask}
+        onClose={() => {
+          setSharingTask(null);
+          setShareEmail("");
+          setShareError("");
+        }}
+        title="Chia sẻ công việc"
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setSharingTask(null);
+                setShareEmail("");
+                setShareError("");
+              }}
+              className="px-3 py-2 rounded-lg border hover:bg-gray-50"
+            >
+              Huỷ
+            </button>
+            <button
+              onClick={handleConfirmShare}
+              className="px-3 py-2 rounded-lg bg-black text-white"
+            >
+              Chia sẻ
+            </button>
+          </>
+        }
+      >
+        <p className="mb-2 text-sm text-gray-700">
+          Chia sẻ công việc:{" "}
+          <span className="font-semibold">{sharingTask?.title}</span>
+        </p>
+        <Field label="Email người được chia sẻ">
+          <input
+            type="email"
+            className="w-full rounded-lg border px-3 py-2"
+            value={shareEmail}
+            onChange={(e) => setShareEmail(e.target.value)}
+            placeholder="nguoi-dung@example.com"
+          />
+        </Field>
+        {shareError && (
+          <p className="mt-1 text-sm text-red-600">{shareError}</p>
+        )}
+      </Modal>
+
       {/* Modal Xoá Category */}
       <Modal
         open={!!deletingCategory}
@@ -1104,12 +1212,11 @@ export default function TodoDashboard() {
         }
       >
         <p>
-          Bạn có chắc muốn xoá danh mục{" "}
-          <b>"{deletingCategory?.name}"</b>?
+          Bạn có chắc muốn xoá danh mục <b>"{deletingCategory?.name}"</b>?
         </p>
         <p className="text-sm text-gray-600 mt-2">
-          Lưu ý: Các công việc thuộc danh mục này sẽ không bị
-          xoá, nhưng sẽ bị mất liên kết danh mục.
+          Lưu ý: Các công việc thuộc danh mục này sẽ không bị xoá, nhưng sẽ bị mất liên kết
+          danh mục.
         </p>
       </Modal>
     </div>

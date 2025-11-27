@@ -25,10 +25,11 @@ function fmt(dt) {
   return `${d.toLocaleTimeString([], { hour12: false })} ${d.toLocaleDateString()}`;
 }
 
-export default function TaskList({ items, onToggle, onEdit, onDelete }) {
+export default function TaskList({ items, onToggle, onEdit, onDelete, onShare }) {
   return (
-    <div className="bg-white border rounded-2xl">
-      <div className="px-5 py-3 grid grid-cols-[28px_1fr_180px_120px_220px_120px] text-xs text-gray-500">
+    <div className="bg-white border rounded-2xl overflow-x-auto">
+      {/* grid theo tỉ lệ, không fix px nữa */}
+      <div className="px-5 py-3 grid grid-cols-[28px_minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.3fr)] text-xs text-gray-500">
         <div></div>
         <div>CÔNG VIỆC</div>
         <div className="text-center">THỜI HẠN</div>
@@ -36,6 +37,7 @@ export default function TaskList({ items, onToggle, onEdit, onDelete }) {
         <div>NHÃN</div>
         <div className="text-center">THAO TÁC</div>
       </div>
+
       <ul className="divide-y">
         {items.map((t) => {
           const overdue =
@@ -48,11 +50,13 @@ export default function TaskList({ items, onToggle, onEdit, onDelete }) {
               : t.priority === "Medium"
               ? "blue"
               : "gray";
+
           return (
             <li
               key={t.id}
-              className="px-5 py-3 grid grid-cols-[28px_1fr_180px_120px_220px_120px] items-start"
+              className="px-5 py-3 grid grid-cols-[28px_minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.3fr)] items-start"
             >
+              {/* Checkbox */}
               <div className="pt-1">
                 <input
                   type="checkbox"
@@ -62,6 +66,7 @@ export default function TaskList({ items, onToggle, onEdit, onDelete }) {
                 />
               </div>
 
+              {/* Công việc */}
               <div>
                 <div
                   className={`font-medium ${
@@ -69,29 +74,32 @@ export default function TaskList({ items, onToggle, onEdit, onDelete }) {
                   }`}
                 >
                   <span className={overdue ? "text-red-600" : ""}>{t.title}</span>
-
                 </div>
                 {t.description && (
                   <div className="text-sm text-gray-600">{t.description}</div>
                 )}
               </div>
 
-              <div className="text-sm mx-3">
+              {/* Thời hạn */}
+              <div className="text-sm mx-2">
                 {t.due_at ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <span className={overdue ? "text-red-600" : ""}>{fmt(t.due_at)}</span>
-
+                  <div className="flex items-center justify-center">
+                    <span className={overdue ? "text-red-600" : ""}>
+                      {fmt(t.due_at)}
+                    </span>
                   </div>
                 ) : (
                   <span className="text-gray-400">—</span>
                 )}
               </div>
 
+              {/* Priority */}
               <div className="flex items-center justify-center">
                 <Pill tone={tone}>{t.priority || "—"}</Pill>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              {/* Tags – cột hẹp, text gọn */}
+              <div className="flex flex-wrap gap-1 max-w-[120px]">
                 {(t.tags || []).length ? (
                   t.tags.map((x) => <Pill key={x}>{x}</Pill>)
                 ) : (
@@ -99,20 +107,29 @@ export default function TaskList({ items, onToggle, onEdit, onDelete }) {
                 )}
               </div>
 
+              {/* Thao tác – 3 nút ngang, không wrap */}
               <div className="text-right">
                 <div className="inline-flex gap-2">
                   <button
                     onClick={() => onEdit(t)}
-                    className="px-3 py-1 rounded-full border hover:bg-gray-50 text-sm"
+                    className="px-2.5 py-1 rounded-full border hover:bg-gray-50 text-xs"
                   >
                     Sửa
                   </button>
                   <button
                     onClick={() => onDelete(t)}
-                    className="px-3 py-1 rounded-full border hover:bg-gray-50 text-sm"
+                    className="px-2.5 py-1 rounded-full border hover:bg-gray-50 text-xs"
                   >
                     Xoá
                   </button>
+                  {onShare && (
+                    <button
+                      onClick={() => onShare(t)}
+                      className="px-2.5 py-1 rounded-full border hover:bg-gray-50 text-xs"
+                    >
+                      Chia sẻ
+                    </button>
+                  )}
                 </div>
               </div>
             </li>

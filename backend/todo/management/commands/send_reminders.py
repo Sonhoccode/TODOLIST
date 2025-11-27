@@ -1,33 +1,99 @@
+from datetime import timedelta
+
 from django.core.management.base import BaseCommand
+from django.core.mail import send_mail
 from django.utils import timezone
-from todo.models import NotificationSetting, SentNotification
+
+from todo.models import NotificationSetting
+
 
 class Command(BaseCommand):
-    help = "Gửi nhắc nhở todo theo NotificationSetting"
+    help = "Gửi email nhắc nhở các công việc sắp đến hạn cho người dùng."
 
     def handle(self, *args, **options):
         now = timezone.now()
-        settings = NotificationSetting.objects.filter(enabled=True).select_related('todo', 'owner')
+        qs = NotificationSetting.objects.select_related("todo", "owner")
 
-        for setting in settings:
+        sent_count = 0
+        skipped = 0
+
+        for setting in qs:
             todo = setting.todo
-            if not todo.due_at:
+            user = setting.owner
+
+            if not setting.enabled:
+                skipped += 1
                 continue
 
-            reminder_time = todo.due_at - timezone.timedelta(minutes=setting.reminder_minutes)
+            if todo.completed:
+                skipped += 1
+                continue
 
-            if reminder_time <= now <= todo.due_at:
-                already_sent = SentNotification.objects.filter(
-                    notification_setting=setting,
-                    todo=todo
-                ).exists()
-                if already_sent:
-                    continue
+            if not todo.due_at:
+                skipped += 1
+                continue
 
-                # TODO: gửi email / push thực sự (hiện tại chỉ print)
-                print(f"[REMINDER] Nhắc user {setting.owner.username} về task: {todo.title}")
+            # Không nhắc nếu đã quá hạn luôn
+            if now > todo.due_at:
+                skipped += 1
+                continue
 
-                SentNotification.objects.create(
-                    notification_setting=setting,
-                    todo=todo
+            minutes = setting.reminder_minutes or 60
+            remind_time = todo.due_at - timedelta(minutes=minutes)
+
+            if now < remind_time:
+                skipped += 1
+                continue
+
+            if setting.last_sent_at is not None:
+                skipped += 1
+                continue
+
+            if not user.email:
+                skipped += 1
+                continue
+
+            subject = f"Nhắc nhở công việc: {todo.title}"
+            lines = [
+                f"Chào {user.get_username() or user.email},",
+                "",
+                "Đây là email nhắc nhở công việc bạn đã bật:",
+                f"- Tiêu đề: {todo.title}",
+                f"- Ưu tiên: {todo.priority}",
+            ]
+
+            local_due = timezone.localtime(todo.due_at)
+            lines.append(f"- Đến hạn lúc: {local_due.strftime('%d/%m/%Y %H:%M')}")
+
+            if todo.description:
+                lines.append("")
+                lines.append(f"Mô tả: {todo.description}")
+
+            lines.append("")
+            lines.append("Đây là email tự động từ hệ thống quản lý công việc.")
+            message = "\n".join(lines)
+
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    None,
+                    [user.email],
+                    fail_silently=False,
                 )
+                setting.last_sent_at = now
+                setting.save(update_fields=["last_sent_at"])
+                sent_count += 1
+            except Exception as e:
+                self.stderr.write(
+                    self.style.ERROR(
+                        f"Lỗi gửi email cho user={user.id}, todo={todo.id}: {e}"
+                    )
+                )
+                skipped += 1
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Hoàn thành. Đã gửi {sent_count} email, bỏ qua {skipped} cấu hình."
+            )
+        )

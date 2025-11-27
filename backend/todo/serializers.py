@@ -1,13 +1,22 @@
 from rest_framework import serializers
-from .models import Todo, Category, TaskShare, ExportLog, CalendarEvent, NotificationSetting
+from .models import (
+    Todo,
+    Category,
+    TaskShare,
+    ExportLog,
+    CalendarEvent,
+    NotificationSetting,
+)
+
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = '__all__'
-        read_only_fields = ['owner'] 
+        fields = "__all__"
+        read_only_fields = ["owner"]
+
     def validate_name(self, value):
-        user = self.context['request'].user
+        user = self.context["request"].user
         qs = Category.objects.filter(owner=user, name=value)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
@@ -16,14 +25,12 @@ class CategorySerializer(serializers.ModelSerializer):
         return value
 
 
-# Class tùy chỉnh này sẽ "dịch" qua lại giữa String (trong DB) và Array (trong JSON)
 class TagsField(serializers.Field):
     def to_representation(self, value):
         if not value:
             return []
-        return [tag.strip() for tag in value.split(',') if tag.strip()]
+        return [tag.strip() for tag in value.split(",") if tag.strip()]
 
-    # Dịch từ JSON (Array) sang Database (String)
     def to_internal_value(self, data):
         if not isinstance(data, list):
             raise serializers.ValidationError("Tags phải là một mảng (array).")
@@ -31,25 +38,30 @@ class TagsField(serializers.Field):
 
 
 class TodoSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True)
-    
-    # Ghi đè (override) trường 'tags' để dùng class 'TagsField'
-    tags = TagsField(required=False) 
+    category_name = serializers.CharField(source="category.name", read_only=True)
+    tags = TagsField(required=False)
 
     class Meta:
         model = Todo
-        # Khai báo fields thủ công
         fields = [
-            'id', 'title', 'description', 'category', 'priority',
-            'created_at', 'due_at', 'remind_at', 'completed',
-            'tags', 'category_name',
-            'daily_reminder_time',
-            'owner'
+            "id",
+            "title",
+            "description",
+            "category",
+            "priority",
+            "created_at",
+            "due_at",
+            "remind_at",
+            "completed",
+            "tags",
+            "category_name",
+            "daily_reminder_time",
+            "owner",
         ]
-        # Thêm 'owner' vào read_only_fields
-        read_only_fields = ['owner', 'created_at', 'category_name']
-        
-# === 3. CHIA SẺ CÔNG VIỆC ===
+        read_only_fields = ["owner", "created_at", "category_name"]
+
+
+# === SHARE TASK ===
 class TaskShareSerializer(serializers.ModelSerializer):
     shared_by_username = serializers.SerializerMethodField(read_only=True)
     shared_to_username = serializers.SerializerMethodField(read_only=True)
@@ -58,11 +70,19 @@ class TaskShareSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskShare
         fields = [
-            'id', 'task', 'shared_by', 'shared_to', 'permission',
-            'created_at', 'accepted', 'share_link',
-            'shared_by_username', 'shared_to_username', 'task_title'
+            "id",
+            "task",
+            "shared_by",
+            "shared_to",
+            "permission",
+            "created_at",
+            "accepted",
+            "share_link",
+            "shared_by_username",
+            "shared_to_username",
+            "task_title",
         ]
-        read_only_fields = ['shared_by', 'created_at', 'share_link']
+        read_only_fields = ["shared_by", "created_at", "share_link"]
 
     def get_shared_by_username(self, obj):
         try:
@@ -81,102 +101,110 @@ class TaskShareSerializer(serializers.ModelSerializer):
             return obj.task.title if obj.task else None
         except Exception:
             return None
-    
+
     def validate(self, attrs):
-        """Validate incoming data for creating a share.
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
 
-        - `task` must exist and belong to request.user when creating a share link via API.
-        - `shared_to` is optional; if provided it must be a valid user instance.
-        """
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-
-        task = attrs.get('task')
+        task = attrs.get("task")
         if not task:
-            raise serializers.ValidationError({'task': 'task field is required.'})
+            raise serializers.ValidationError({"task": "task field is required."})
 
-        # Ensure the requester owns the task (only owners can create share links)
         if user and task.owner != user:
-            raise serializers.ValidationError({'task': 'Bạn không có quyền chia sẻ công việc này.'})
+            raise serializers.ValidationError(
+                {"task": "Bạn không có quyền chia sẻ công việc này."}
+            )
 
         return attrs
 
     def create(self, validated_data):
-        """Create TaskShare — generate a share_link and set shared_by from request user.
+        import uuid
 
-        If `shared_to` is not provided, a public share link is created (shared_to=None).
-        """
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
 
-        task = validated_data.get('task')
-        shared_to = validated_data.get('shared_to', None)
-        permission = validated_data.get('permission', 'view')
+        task = validated_data.get("task")
+        shared_to = validated_data.get("shared_to", None)
+        permission = validated_data.get("permission", "view")
 
-        # generate unique short link
         share_link = None
         for _ in range(5):
-            candidate = str(__import__('uuid').uuid4())[:8]
+            candidate = str(uuid.uuid4())[:8]
             if not TaskShare.objects.filter(share_link=candidate).exists():
                 share_link = candidate
                 break
         if not share_link:
-            share_link = str(__import__('uuid').uuid4())[:12]
+            share_link = str(uuid.uuid4())[:12]
 
         ts = TaskShare.objects.create(
             task=task,
             shared_by=user,
             shared_to=shared_to,
             permission=permission,
-            share_link=share_link
+            share_link=share_link,
         )
-
         return ts
 
 
-# === 4. XUẤT / NHẬP DANH SÁCH ===
+# === LỊCH ===
 class ExportLogSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    
+    username = serializers.CharField(source="user.username", read_only=True)
+
     class Meta:
         model = ExportLog
-        fields = ['id', 'user', 'username', 'format', 'file_path', 'exported_count', 'created_at']
-        read_only_fields = ['user', 'file_path', 'exported_count', 'created_at']
+        fields = ["id", "user", "username", "format", "file_path", "exported_count", "created_at"]
+        read_only_fields = ["user", "file_path", "exported_count", "created_at"]
 
 
-# === 5. TÍCH HỢP LỊCH ===
 class CalendarEventSerializer(serializers.ModelSerializer):
-    task_title = serializers.CharField(source='todo.title', read_only=True)
-    task_description = serializers.CharField(source='todo.description', read_only=True)
-    task_priority = serializers.CharField(source='todo.priority', read_only=True)
-    task_completed = serializers.BooleanField(source='todo.completed', read_only=True)
-    
+    task_title = serializers.CharField(source="todo.title", read_only=True)
+    task_description = serializers.CharField(source="todo.description", read_only=True)
+    task_priority = serializers.CharField(source="todo.priority", read_only=True)
+    task_completed = serializers.BooleanField(source="todo.completed", read_only=True)
+
     class Meta:
         model = CalendarEvent
         fields = [
-            'id', 'todo', 'user', 'date', 'start_time', 'created_at', 'updated_at',
-            'task_title', 'task_description', 'task_priority', 'task_completed'
+            "id",
+            "todo",
+            "user",
+            "date",
+            "start_time",
+            "created_at",
+            "updated_at",
+            "task_title",
+            "task_description",
+            "task_priority",
+            "task_completed",
         ]
-        read_only_fields = ['user', 'created_at', 'updated_at']
-        
+        read_only_fields = ["user", "created_at", "updated_at"]
+
+
+# === THÔNG BÁO / NHẮC VIỆC ===
 class NotificationSettingSerializer(serializers.ModelSerializer):
-    todo_title = serializers.CharField(source='todo.title', read_only=True)
+    todo_title = serializers.CharField(source="todo.title", read_only=True)
     channels_list = serializers.SerializerMethodField()
 
     class Meta:
         model = NotificationSetting
         fields = [
-            'id', 'todo', 'todo_title',
-            'reminder_minutes', 'channels', 'channels_list',
-            'enabled', 'created_at', 'updated_at',
+            "id",
+            "todo",
+            "todo_title",
+            "reminder_minutes",
+            "channels",
+            "channels_list",
+            "enabled",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['owner', 'created_at', 'updated_at']
+        read_only_fields = ["owner", "created_at", "updated_at"]
 
     def get_channels_list(self, obj):
         return obj.get_channels_list()
 
     def validate_todo(self, value):
-        user = self.context['request'].user
+        user = self.context["request"].user
         if value.owner != user:
             raise serializers.ValidationError("Bạn không có quyền tạo nhắc nhở cho Todo này.")
         return value

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { register } from "../api/auth"; // Import API
+import { register } from "../api/auth";
+
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";
 
 export default function Register() {
   const navigate = useNavigate();
 
-  // State cho 4 trường mà API yêu cầu
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -26,7 +27,6 @@ export default function Register() {
     }
     setError("");
     try {
-      // map password -> password1 để đúng với dj-rest-auth
       await register({
         username: form.username,
         email: form.email,
@@ -48,9 +48,16 @@ export default function Register() {
     }
   };
 
+  const handleGoogleLogin = () => {
+    window.location.href = `${API_BASE_URL}/accounts/google/login/`;
+  };
+
+  const handleGithubLogin = () => {
+    window.location.href = `${API_BASE_URL}/accounts/github/login/`;
+  };
+  
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100">
-      {/* Header */}
       <header className="bg-white/80 backdrop-blur border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-5xl mx-auto h-[72px] px-6 flex items-center justify-between">
           <Link
@@ -65,10 +72,8 @@ export default function Register() {
         </div>
       </header>
 
-      {/* Body */}
       <main className="flex-1 flex items-center justify-center px-4">
         <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl ring-1 ring-black/10 p-8 md:p-10">
-          {/* Nút quay lại */}
           <button
             onClick={() => navigate(-1)}
             className="absolute top-4 left-4 p-2 rounded-full border border-gray-200 text-gray-600 hover:text-black hover:border-gray-400 transition"
@@ -89,11 +94,39 @@ export default function Register() {
           <h2 className="text-3xl font-bold mb-2 text-center text-gray-900">
             Create Account
           </h2>
-          <p className="text-center text-gray-500 mb-8">
+          <p className="text-center text-gray-500 mb-4">
             Let’s get you started with your personal TODO app
           </p>
 
-          {/* Form */}
+          {/* Social register/login */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-gray-200" />
+              <span className="text-xs text-gray-400 uppercase tracking-wide">
+                Continue with
+              </span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                className="w-full py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-800 hover:bg-gray-50 transition"
+              >
+                Google
+              </button>
+              <button
+                type="button"
+                onClick={handleGithubLogin}
+                className="w-full py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-800 hover:bg-gray-50 transition"
+              >
+                GitHub
+              </button>
+            </div>
+          </div>
+
+          {/* Form register chuẩn */}
           <form className="space-y-4" onSubmit={handleSubmit}>
             <input
               name="username"
@@ -131,7 +164,9 @@ export default function Register() {
               value={form.password2}
               onChange={handleChange}
             />
-            {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+            {error && (
+              <p className="text-sm text-red-600 text-center">{error}</p>
+            )}
 
             <button
               type="submit"

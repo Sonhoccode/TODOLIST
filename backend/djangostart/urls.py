@@ -18,6 +18,8 @@ urlpatterns = [
 
     # Các endpoint còn lại của dj-rest-auth (logout, password change, user, v.v.)
     path('api/auth/', include('dj_rest_auth.urls')),
+    
+    path("accounts/", include("allauth.urls")),
 
     # Social login
     path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),

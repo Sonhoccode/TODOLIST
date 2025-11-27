@@ -1,23 +1,44 @@
 // src/api/notifications.js
 import client from "./client";
 
-const endpoint = "/notifications/";
+// Lấy notification của 1 task
+export async function getNotificationByTodo(todoId) {
+  const res = await client.get("/notifications/", {
+    params: { todo: todoId },
+  });
 
-// CRUD notification settings
-export const listNotifications = (params) =>
-  client.get(endpoint, { params }).then((r) => r.data);
+  if (Array.isArray(res.data) && res.data.length > 0) {
+    return res.data[0];
+  }
+  return null;
+}
 
-export const createNotification = (data) =>
-  client.post(endpoint, data).then((r) => r.data);
+// Lưu cấu hình nhắc email cho 1 task
+export async function saveNotificationForTodo(todoId, enabled, minutes) {
+  const current = await getNotificationByTodo(todoId);
 
-export const updateNotification = (id, data) =>
-  client.put(`${endpoint}${id}/`, data).then((r) => r.data);
+  if (!enabled) {
+    if (current) {
+      const res = await client.patch(`/notifications/${current.id}/`, {
+        enabled: false,
+      });
+      return res.data;
+    }
+    return null;
+  }
 
-export const deleteNotification = (id) =>
-  client.delete(`${endpoint}${id}/`).then((r) => r.data);
+  const payload = {
+    todo: todoId,
+    reminder_minutes: Number(minutes) || 0,
+    channels: "email",
+    enabled: true,
+  };
 
-// Lấy notification theo 1 todo cụ thể
-export const getNotificationsByTodo = (todoId) =>
-  client
-    .get(`${endpoint}by-todo/`, { params: { todo_id: todoId } })
-    .then((r) => r.data);
+  if (!current) {
+    const res = await client.post("/notifications/", payload);
+    return res.data;
+  } else {
+    const res = await client.patch(`/notifications/${current.id}/`, payload);
+    return res.data;
+  }
+}
