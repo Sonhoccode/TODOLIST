@@ -137,6 +137,14 @@ CORS_ALLOWED_ORIGINS = []
 if FRONTEND_ORIGIN:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_ORIGIN)
 
+# Thêm các port local thường dùng
+CORS_ALLOWED_ORIGINS.extend([
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+])
+
 # Cho phép backend tự gọi chính nó (nếu cần)
 if BACKEND_ORIGIN:
     CORS_ALLOWED_ORIGINS.append(BACKEND_ORIGIN)
@@ -174,7 +182,9 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-    ]
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
 }
 
 SITE_ID = 1

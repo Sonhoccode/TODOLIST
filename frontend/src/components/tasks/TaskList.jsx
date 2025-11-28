@@ -25,7 +25,7 @@ function fmt(dt) {
   return `${d.toLocaleTimeString([], { hour12: false })} ${d.toLocaleDateString()}`;
 }
 
-export default function TaskList({ items, onToggle, onEdit, onDelete, onShare }) {
+function TaskList({ items, onToggle, onEdit, onDelete, onShare }) {
   return (
     <div className="bg-white border rounded-2xl overflow-x-auto">
       {/* grid theo tỉ lệ, không fix px nữa */}
@@ -139,3 +139,5 @@ export default function TaskList({ items, onToggle, onEdit, onDelete, onShare })
     </div>
   );
 }
+
+export default React.memo(TaskList);

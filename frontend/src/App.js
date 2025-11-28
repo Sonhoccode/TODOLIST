@@ -7,7 +7,7 @@ import TodoDashboard from "./page/TodoDashboard";
 import Login from "./page/login";
 import Register from "./page/register";
 import ProtectedRoute from "./components/ProtectedRoute";
-import ShareTodoPage from "./page/ShareTodoPage";   // <-- THÊM DÒNG NÀY
+import ShareTodoPage from "./page/ShareTodoPage";
 
 export default function App() {
   return (

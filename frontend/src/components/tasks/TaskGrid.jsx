@@ -88,7 +88,7 @@ function TaskCard({ task, onToggle, onEdit, onDelete }) {
 
 
 // Component Grid chính
-export default function TaskGrid({
+function TaskGrid({
   items,
   onToggle,
   onEdit,
@@ -108,3 +108,5 @@ export default function TaskGrid({
     </div>
   );
 }
+
+export default React.memo(TaskGrid);

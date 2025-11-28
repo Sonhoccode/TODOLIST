@@ -48,9 +48,10 @@ from .services.chatbot import TaskChatbot
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Không phân trang categories
 
     def get_queryset(self):
-        return Category.objects.filter(owner=self.request.user)
+        return Category.objects.filter(owner=self.request.user).only('id', 'name')
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -92,6 +93,12 @@ class TodoViewSet(viewsets.ModelViewSet):
         return (
             Todo.objects.filter(owner=self.request.user)
             .select_related("category")
+            .only(
+                'id', 'title', 'description', 'priority', 
+                'completed', 'due_at', 'created_at', 'tags',
+                'remind_at', 'daily_reminder_time',
+                'category__id', 'category__name'
+            )
             .order_by("-created_at")
         )
 

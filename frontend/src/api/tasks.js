@@ -5,7 +5,13 @@ const endpoint = "/todos/";
 
 // ==== CORE CRUD ====
 export const listTasks = (params) =>
-  client.get(endpoint, { params }).then((r) => r.data);
+  client.get(endpoint, { params }).then((r) => {
+    // Handle pagination response
+    if (r.data.results) {
+      return r.data.results; // DRF pagination format
+    }
+    return r.data; // Non-paginated format
+  });
 
 export const createTask = (data) =>
   client.post(endpoint, data).then((r) => r.data);

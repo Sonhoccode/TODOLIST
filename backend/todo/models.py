@@ -79,6 +79,13 @@ class Todo(models.Model):
     class Meta:
         verbose_name = "Công việc"
         verbose_name_plural = "Các công việc"
+        indexes = [
+            models.Index(fields=['owner', '-created_at']),
+            models.Index(fields=['owner', 'completed']),
+            models.Index(fields=['owner', 'priority']),
+            models.Index(fields=['owner', 'category']),
+            models.Index(fields=['due_at']),
+        ]
 
     def __str__(self):
         return self.title

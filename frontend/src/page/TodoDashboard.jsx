@@ -122,13 +122,22 @@ export default function TodoDashboard() {
     setSearch("");
   };
 
-  // Search
+  // Search with debounce
   const [search, setSearch] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
+  
   useEffect(() => {
     const h = (e) => setSearch(e.detail || "");
     window.addEventListener("global-search", h);
     return () => window.removeEventListener("global-search", h);
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchDebounced(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Sort
   const [sortBy, setSortBy] = useState("default");
@@ -349,7 +358,7 @@ export default function TodoDashboard() {
     await load();
   }
 
-  async function onToggle(t) {
+  const onToggle = useCallback(async (t) => {
     setTasks((currentTasks) =>
       currentTasks.map((task) =>
         task.id === t.id ? { ...task, completed: !t.completed } : task
@@ -365,11 +374,11 @@ export default function TodoDashboard() {
         )
       );
     }
-  }
+  }, []);
 
-  async function onDelete(t) {
+  const onDelete = useCallback((t) => {
     setDeletingTask(t);
-  }
+  }, []);
 
   async function handleConfirmDelete() {
     if (!deletingTask) return;
@@ -500,11 +509,11 @@ export default function TodoDashboard() {
 
   // ================== Share actions ==================
 
-  const openShare = (task) => {
+  const openShare = useCallback((task) => {
     setSharingTask(task);
     setShareEmail("");
     setShareError("");
-  };
+  }, []);
 
   const handleConfirmShare = async () => {
     if (!sharingTask) return;
@@ -593,8 +602,8 @@ export default function TodoDashboard() {
       );
     }
 
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
+    if (searchDebounced.trim()) {
+      const q = searchDebounced.trim().toLowerCase();
       data = data.filter(
         (t) =>
           t.title?.toLowerCase().includes(q) ||
@@ -619,7 +628,7 @@ export default function TodoDashboard() {
     }
 
     return data;
-  }, [tasks, search, sortBy, selectedTags]);
+  }, [tasks, searchDebounced, sortBy, selectedTags]);
 
   // ================== Render ==================
 
