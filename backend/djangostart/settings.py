@@ -106,7 +106,7 @@ DATABASES = {
     }
 }
 
-DATABASES['default']['CONN_MAX_AGE'] = None  # persistent connections
+DATABASES['default']['CONN_MAX_AGE'] = 300  # persistent connections
 DATABASES['default']["CONN_HEALTH_CHECKS"] = True
 
 
