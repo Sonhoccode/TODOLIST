@@ -11,6 +11,7 @@ const Login = lazy(() => import("./page/login"));
 const Register = lazy(() => import("./page/register"));
 const ShareTodoPage = lazy(() => import("./page/ShareTodoPage"));
 const SchedulerTest = lazy(() => import("./page/SchedulerTest"));
+const AuthCallback = lazy(() => import("./page/AuthCallback"));
 
 // Loading component
 const LoadingFallback = () => (
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/share/:shareLink" element={<ShareTodoPage />} />
+        <Route path="/auth-callback" element={<AuthCallback />} />
         
         {/* AI Scheduler Test Page */}
         <Route 

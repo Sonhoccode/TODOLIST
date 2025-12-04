@@ -106,6 +106,8 @@ DATABASES = {
     }
 }
 
+DATABASES['default']['CONN_MAX_AGE'] = None  # persistent connections
+DATABASES['default']["CONN_HEALTH_CHECKS"] = True
 
 # ================== PASSWORD VALIDATORS ==================
 AUTH_PASSWORD_VALIDATORS = [
@@ -270,6 +272,11 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = True
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False  # Rất quan trọng
 
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
         "APP": {
@@ -286,3 +293,5 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     },
 }
+
+SOCIALACCOUNT_ADAPTER = 'djangostart.adapters.CustomSocialAccountAdapter'
