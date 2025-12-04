@@ -3,6 +3,7 @@ import "./index.css";
 import "./styles/globals.css";
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SocialCallback from "./page/SocialCallback";
 
 // Lazy load các pages để tối ưu performance
 const LandingPage = lazy(() => import("./page/landing_page"));
@@ -11,6 +12,7 @@ const Login = lazy(() => import("./page/login"));
 const Register = lazy(() => import("./page/register"));
 const ShareTodoPage = lazy(() => import("./page/ShareTodoPage"));
 const SchedulerTest = lazy(() => import("./page/SchedulerTest"));
+
 
 // Loading component
 const LoadingFallback = () => (
@@ -31,6 +33,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/share/:shareLink" element={<ShareTodoPage />} />
         
+        
         {/* AI Scheduler Test Page */}
         <Route 
           path="/scheduler" 
@@ -49,6 +52,7 @@ export default function App() {
             </ProtectedRoute>
           } 
         />
+        <Route path="/auth/:provider/callback" element={<SocialCallback />} />
       </Routes>
     </Suspense>
   );

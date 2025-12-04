@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { login } from "../api/auth";
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+const GITHUB_CLIENT_ID = process.env.REACT_APP_GITHUB_CLIENT_ID;
 
 export default function Login() {
   const navigate = useNavigate();
@@ -23,12 +25,45 @@ export default function Login() {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${API_BASE_URL}/accounts/google/login/`;
+    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    const scope = encodeURIComponent("openid email profile");
+    const state =
+      window.crypto?.randomUUID?.() ||
+      Math.random().toString(36).substring(2);
+
+    const authUrl =
+      "https://accounts.google.com/o/oauth2/v2/auth" +
+      `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&scope=${scope}` +
+      `&access_type=offline` +
+      `&prompt=select_account` +
+      `&state=${state}`;
+
+    sessionStorage.setItem("oauth_state_google", state);
+    window.location.href = authUrl;
   };
 
   const handleGithubLogin = () => {
-    window.location.href = `${API_BASE_URL}/accounts/github/login/`;
+    const redirectUri = `${window.location.origin}/auth/github/callback`;
+    const scope = encodeURIComponent("read:user user:email");
+    const state =
+      window.crypto?.randomUUID?.() ||
+      Math.random().toString(36).substring(2);
+
+    const authUrl =
+      "https://github.com/login/oauth/authorize" +
+      `?client_id=${encodeURIComponent(GITHUB_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&scope=${scope}` +
+      `&state=${state}`;
+
+    sessionStorage.setItem("oauth_state_github", state);
+    window.location.href = authUrl;
   };
+
+
 
 
   return (

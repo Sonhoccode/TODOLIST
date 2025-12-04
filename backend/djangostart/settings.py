@@ -160,12 +160,16 @@ FRONTEND_ORIGIN = os.environ.get(
 )
 
 # Backend origin – dùng cho CSRF_TRUSTED_ORIGINS (Railway hoặc api.hsonspace.id.vn)
-BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN", "http://127.0.0.1:8000")
+BACKEND_ORIGIN = os.environ.get(
+    "BACKEND_ORIGIN", 
+    "http://127.0.0.1:8000"
+)
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://hsonspace.id.vn",
 ]
 
 # Thêm FRONTEND_ORIGIN nếu khác default
@@ -205,6 +209,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8000",
     "http://localhost:8000",
+    "https://hsonspace.id.vn",
+    "https://api.hsonspace.id.vn",
 ]
 
 # Thêm origins từ env
@@ -272,6 +278,11 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = True
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False  # Rất quan trọng
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
