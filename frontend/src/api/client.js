@@ -48,6 +48,7 @@ client.interceptors.response.use(
         status: error.response?.status,
         data: error.response?.data,
       });
+      console.log("Full error object:", error);
     }
     
     return Promise.reject(error);

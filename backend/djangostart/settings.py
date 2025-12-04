@@ -1,4 +1,5 @@
 from pathlib import Path
+import dj_database_url
 import os
 from dotenv import load_dotenv
 
@@ -6,11 +7,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http"
 
 # ================== ENVIRONMENT ==================
 # ENVIRONMENT: local | production
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "local")
+
 
 # Local thì load .env, Railway thì không cần (Railway inject env trực tiếp)
 if ENVIRONMENT == "local":
@@ -49,6 +51,7 @@ INSTALLED_APPS = [
 
     # Auth
     'allauth',
+    
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
@@ -96,14 +99,11 @@ WSGI_APPLICATION = 'djangostart.wsgi.application'
 
 # ================== DATABASE ==================
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASSWORD'),
-        'HOST': os.environ.get('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-    }
+    "default": dj_database_url.config(
+        
+        env="DATABASE_URL",
+        conn_max_age=0,  # dev: mỗi request xong là đóng kết nối
+    )
 }
 
 DATABASES['default']['CONN_MAX_AGE'] = 300  # persistent connections
@@ -163,7 +163,7 @@ FRONTEND_ORIGIN = os.environ.get(
 BACKEND_ORIGIN = os.environ.get(
     "BACKEND_ORIGIN", 
     "http://127.0.0.1:8000"
-)
+    )
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
@@ -250,20 +250,7 @@ REST_FRAMEWORK = {
 SITE_ID = 1
 
 
-# ================== EMAIL ==================
-# Local: in mail ra console; Production: dùng SMTP qua env (Zoho / Gmail đều được)
-if DEBUG and ENVIRONMENT == "local":
-    # local / debug: in mail ra console cho dễ test
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-else:
-    # production: gửi thật qua SMTP (m set trong env)
-    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-    EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.zoho.com")
-    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
-    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
-    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")      # vd: adminspace@hsonspace.id.vn
-    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")  # app password
-    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 
 # ================== ALLAUTH / DJ-REST-AUTH ==================
@@ -274,8 +261,9 @@ ACCOUNT_SIGNUP_FIELDS = ['username', 'email']  # 'password' được ngầm đ�
 # 2. Cú pháp cũ cho dj-rest-auth (bắt buộc, dù có warnings)
 ACCOUNT_AUTHENTICATION_METHOD = 'username'
 ACCOUNT_EMAIL_VERIFICATION = 'none'
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_EMAIL_REQUIRED = False
+ACCOUNT_UNIQUE_EMAIL = False
+SOCIALACCOUNT_AUTO_SIGNUP = True
 ACCOUNT_USERNAME_REQUIRED = True
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False  # Rất quan trọng
 
@@ -286,17 +274,28 @@ AUTHENTICATION_BACKENDS = [
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
-        "APP": {
-            "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
-            "secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
-            "key": ""
-        }
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        # "APP": {
+        #     "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+        #     "secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
+        #     "key": "",
+        # },
     },
     "github": {
-        "APP": {
-            "client_id": os.environ.get("GITHUB_CLIENT_ID"),
-            "secret": os.environ.get("GITHUB_CLIENT_SECRET"),
-            "key": ""
-        }
+        # "APP": {
+        #     "client_id": os.environ.get("GITHUB_CLIENT_ID"),
+        #     "secret": os.environ.get("GITHUB_CLIENT_SECRET"),
+        #     "key": ""
+        # }
     },
 }
+
+if DEBUG:
+    FRONTEND_URL = "http://localhost:3000"
+else:
+    FRONTEND_URL = "https://hsonspace.id.vn"
+
+# Sau khi login xong, allauth sẽ redirect vào URL backend này
+LOGIN_REDIRECT_URL = "/accounts/redirect-after-login/"
+ACCOUNT_LOGOUT_REDIRECT_URL = "/accounts/redirect-after-login/"

@@ -11,7 +11,7 @@ from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
-from django.core.mail import send_mail
+from todo.services.email_zoho import send_email
 from django.conf import settings
 
 from rest_framework import status, viewsets, filters
@@ -224,17 +224,19 @@ Nhấn vào link sau để xem và chấp nhận:
 {share_url}
 """
 
-        send_mail(
-            subject,
-            message,
-            None,
-            [shared_to_user.email],
-            fail_silently=True,
+        email_sent = send_email(
+            subject=subject,
+            text=message,
+            to=shared_to_user.email,
         )
 
         serializer = TaskShareSerializer(task_share)
+        data = serializer.data
+        if not email_sent:
+            data["warning"] = "Không thể gửi email thông báo. Vui lòng kiểm tra cấu hình Zoho Mail."
+
         return Response(
-            serializer.data,
+            data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 

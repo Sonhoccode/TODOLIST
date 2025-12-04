@@ -1,16 +1,25 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from "react-router-dom";
 
 export default function ProtectedRoute({ children }) {
   const location = useLocation();
-  const token = localStorage.getItem('token');
+  const params = new URLSearchParams(location.search);
+  const tokenFromUrl = params.get("token");
 
-  if (!token) {
-    // Nếu không có token, chuyển hướng về /login
-    // 'replace' để không lưu trang /home vào lịch sử
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  let token = localStorage.getItem("token");
+
+  if (tokenFromUrl) {
+    localStorage.setItem("token", tokenFromUrl);
+    token = tokenFromUrl;
+
+    // Xóa token khỏi URL để nhìn cho đẹp
+    const url = new URL(window.location.href);
+    url.searchParams.delete("token");
+    window.history.replaceState({}, "", url.toString());
   }
 
-  // Nếu có token, hiển thị trang (TodoDashboard)
+  if (!token) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
   return children;
 }

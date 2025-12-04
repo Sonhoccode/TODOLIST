@@ -110,6 +110,7 @@ export default function Sidebar({
             ["completed","Hoàn thành"],
             ["overdue","Trễ hạn"],
             ["today","Trong ngày"],
+            ["shared","Được chia sẻ"],
           ].map(([key,label]) => (
             <Chip key={key} active={status===key} onClick={()=>setStatus(key)}>{label}</Chip>
           ))}

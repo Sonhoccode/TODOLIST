@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from todo.views import PublicLoginView, PublicRegisterView
 from .social_views import GoogleLogin, GitHubLogin
+from .views import redirect_after_login
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,4 +25,6 @@ urlpatterns = [
     # Social login
     path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),
     path('api/auth/github/', GitHubLogin.as_view(), name='github_login'),
+    path("accounts/redirect-after-login/", redirect_after_login, name="redirect_after_login"),
+    path("accounts/", include("allauth.urls")),
 ]

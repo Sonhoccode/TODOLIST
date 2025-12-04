@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
-from django.core.mail import send_mail
+from todo.services.email_zoho import send_email
 from django.utils import timezone
 
 from todo.models import NotificationSetting
@@ -74,12 +74,11 @@ class Command(BaseCommand):
             message = "\n".join(lines)
 
             try:
-                send_mail(
-                    subject,
-                    message,
-                    None,
-                    [user.email],
-                    fail_silently=False,
+                send_email(
+                    subject=subject,
+                    text=message,
+                    to=user.email,
+                ) fail_silently=False,
                 )
                 setting.last_sent_at = now
                 setting.save(update_fields=["last_sent_at"])

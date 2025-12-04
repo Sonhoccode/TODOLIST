@@ -66,12 +66,14 @@ class TaskShareSerializer(serializers.ModelSerializer):
     shared_by_username = serializers.SerializerMethodField(read_only=True)
     shared_to_username = serializers.SerializerMethodField(read_only=True)
     task_title = serializers.SerializerMethodField(read_only=True)
+    task_details = TodoSerializer(source="task", read_only=True)
 
     class Meta:
         model = TaskShare
         fields = [
             "id",
             "task",
+            "task_details",
             "shared_by",
             "shared_to",
             "permission",
