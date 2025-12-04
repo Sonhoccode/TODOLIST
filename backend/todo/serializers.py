@@ -127,14 +127,8 @@ class TaskShareSerializer(serializers.ModelSerializer):
         shared_to = validated_data.get("shared_to", None)
         permission = validated_data.get("permission", "view")
 
-        share_link = None
-        for _ in range(5):
-            candidate = str(uuid.uuid4())[:8]
-            if not TaskShare.objects.filter(share_link=candidate).exists():
-                share_link = candidate
-                break
-        if not share_link:
-            share_link = str(uuid.uuid4())[:12]
+        # Tăng độ dài share_link lên 32 ký tự để bảo mật hơn
+        share_link = str(uuid.uuid4()).replace('-', '')[:32]
 
         ts = TaskShare.objects.create(
             task=task,

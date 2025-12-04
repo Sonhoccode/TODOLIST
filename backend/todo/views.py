@@ -6,7 +6,7 @@ import json
 import uuid
 
 from django.db import models
-from django.db.models import Q, ProtectedError
+from django.db.models import Q, ProtectedError, Count
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -18,6 +18,7 @@ from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from dj_rest_auth.views import LoginView
 from dj_rest_auth.registration.views import RegisterView
 
@@ -48,6 +49,7 @@ from .services.chatbot import TaskChatbot
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Tắt pagination cho categories
 
     def get_queryset(self):
         return Category.objects.filter(owner=self.request.user)
@@ -61,6 +63,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class NotificationSettingViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSettingSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Tắt pagination cho notifications
 
     def get_queryset(self):
         qs = NotificationSetting.objects.filter(owner=self.request.user)
@@ -75,9 +78,17 @@ class NotificationSettingViewSet(viewsets.ModelViewSet):
 
 # ============== Todo ==============
 
+# Custom pagination class
+class TodoPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class TodoViewSet(viewsets.ModelViewSet):
     serializer_class = TodoSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = TodoPagination
 
     filter_backends = [
         DjangoFilterBackend,
@@ -89,19 +100,26 @@ class TodoViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at", "due_at", "priority"]
 
     def get_queryset(self):
+        # Tối ưu query với select_related
         return (
             Todo.objects.filter(owner=self.request.user)
-            .select_related("category")
+            .select_related("category", "owner")
             .order_by("-created_at")
         )
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+        self._clear_user_cache(self.request.user.id)
+    
+    def perform_update(self, serializer):
+        serializer.save()
+        self._clear_user_cache(self.request.user.id)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
             self.perform_destroy(instance)
+            self._clear_user_cache(request.user.id)
         except Exception as e:
             print("ERROR_WHEN_DELETING_TODO:", repr(e))
             return Response(
@@ -118,8 +136,15 @@ class TodoViewSet(viewsets.ModelViewSet):
         todo = self.get_object()
         todo.completed = not todo.completed
         todo.save()
+        # Clear cache
+        self._clear_user_cache(request.user.id)
         serializer = self.get_serializer(todo, context={"request": request})
         return Response(serializer.data)
+    
+    def _clear_user_cache(self, user_id):
+        from django.core.cache import cache
+        cache.delete(f"report_{user_id}_progress")
+        cache.delete(f"report_{user_id}_priority")
 
     # =========== CHIA SẺ CÔNG VIỆC ===========
 
@@ -215,13 +240,19 @@ Nhấn vào link sau để xem và chấp nhận:
 
     @action(detail=False, methods=["get"], url_path="shared-with-me")
     def shared_with_me(self, request):
-        shared_tasks = TaskShare.objects.filter(shared_to=request.user)
+        # Tối ưu với select_related
+        shared_tasks = TaskShare.objects.filter(
+            shared_to=request.user
+        ).select_related('task', 'shared_by', 'shared_to')
         serializer = TaskShareSerializer(shared_tasks, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="shared-by-me")
     def shared_by_me(self, request):
-        shared_tasks = TaskShare.objects.filter(shared_by=request.user)
+        # Tối ưu với select_related
+        shared_tasks = TaskShare.objects.filter(
+            shared_by=request.user
+        ).select_related('task', 'shared_by', 'shared_to')
         serializer = TaskShareSerializer(shared_tasks, many=True)
         return Response(serializer.data)
 
@@ -271,14 +302,30 @@ def accept_share(request, share_link):
 
 class ReportViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
+    
+    def get_cache_key(self, user_id, report_type):
+        return f"report_{user_id}_{report_type}"
 
     @action(detail=False, methods=["get"], url_path="progress")
     def progress_report(self, request):
+        from django.core.cache import cache
+        
         user = request.user
-        todos = Todo.objects.filter(owner=user).only("id", "completed")
-
-        total = todos.count()
-        completed = todos.filter(completed=True).count()
+        cache_key = self.get_cache_key(user.id, 'progress')
+        
+        # Try cache first
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
+        
+        # Calculate if not cached
+        stats = Todo.objects.filter(owner=user).aggregate(
+            total=Count('id'),
+            completed=Count('id', filter=Q(completed=True))
+        )
+        
+        total = stats['total']
+        completed = stats['completed']
         in_progress = total - completed
 
         data = {
@@ -287,6 +334,9 @@ class ReportViewSet(viewsets.ViewSet):
             "incomplete_tasks": in_progress,
             "completion_rate": (completed / total * 100) if total else 0,
         }
+        
+        # Cache for 60 seconds
+        cache.set(cache_key, data, 60)
         return Response(data)
 
     @action(detail=False, methods=["get"], url_path="timeline")
@@ -315,27 +365,35 @@ class ReportViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"], url_path="by-priority")
     def by_priority_report(self, request):
+        from django.core.cache import cache
+        
         user = request.user
-        todos = Todo.objects.filter(owner=user).only(
-            "id", "priority", "completed"
+        cache_key = self.get_cache_key(user.id, 'priority')
+        
+        # Try cache first
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
+        
+        # Calculate if not cached
+        stats = Todo.objects.filter(owner=user).values('priority').annotate(
+            total=Count('id'),
+            completed=Count('id', filter=Q(completed=True))
         )
 
-        stats = {}
-        for t in todos:
-            p = t.priority
-            if p not in stats:
-                stats[p] = {"priority": p, "total": 0, "completed": 0}
-            stats[p]["total"] += 1
-            if t.completed:
-                stats[p]["completed"] += 1
-
         result = []
-        for p, info in stats.items():
-            total = info["total"]
-            completed = info["completed"]
-            info["completion_rate"] = (completed / total * 100) if total else 0
-            result.append(info)
+        for stat in stats:
+            total = stat['total']
+            completed = stat['completed']
+            result.append({
+                'priority': stat['priority'],
+                'total': total,
+                'completed': completed,
+                'completion_rate': (completed / total * 100) if total else 0
+            })
 
+        # Cache for 60 seconds
+        cache.set(cache_key, result, 60)
         return Response(result)
 
 
@@ -418,18 +476,30 @@ def chatbot_create_task(request):
     chatbot = TaskChatbot()
     task_data = chatbot.parse_message(message)
 
-    task_data["owner"] = request.user
-    task_data["completed"] = False
-    task_data["tags"] = ""
-
+    # Parse due_at - FIXED: Handle timezone properly
+    due_at = None
     if task_data.get("due_at"):
-        task_data["due_at"] = timezone.datetime.fromisoformat(task_data["due_at"])
+        try:
+            # Parse ISO string and ensure it's timezone-aware
+            due_at_str = task_data["due_at"]
+            if 'T' in due_at_str:
+                due_at = datetime.fromisoformat(due_at_str.replace('Z', '+00:00'))
+            else:
+                # If no time component, parse as date only
+                due_at = datetime.fromisoformat(due_at_str)
+            
+            # Make timezone-aware if needed
+            if due_at.tzinfo is None:
+                due_at = timezone.make_aware(due_at)
+        except Exception as e:
+            print(f"Error parsing due_at: {e}, value: {task_data.get('due_at')}")
+            pass
 
     todo = Todo.objects.create(
         owner=request.user,
         title=task_data.get("title", "Task mới"),
         description=task_data.get("description", ""),
-        due_at=task_data.get("due_at"),
+        due_at=due_at,
         priority=task_data.get("priority", "Medium"),
         completed=False,
         tags="",

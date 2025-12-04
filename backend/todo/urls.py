@@ -26,6 +26,18 @@ router.register(
 )
 
 urlpatterns = [
+    # API AI - Đặt TRƯỚC router để tránh conflict
+    path(
+        "predict/",
+        predict_task_completion,
+        name="predict-task",
+    ),
+    path(
+        "chatbot/",
+        chatbot_create_task,
+        name="chatbot-create-task",
+    ),
+    
     # Routers cơ bản (CRUD todo, category, report, notification)
     path("", include(router.urls)),
 
@@ -46,18 +58,6 @@ urlpatterns = [
     # Auth chuẩn (token, password reset, social, ...)
     path("dj-rest-auth/", include("dj_rest_auth.urls")),
     path("dj-rest-auth/registration/", include("dj_rest_auth.registration.urls")),
-
-    # API AI
-    path(
-        "todos/predict/",
-        predict_task_completion,
-        name="predict-task",
-    ),
-    path(
-        "todos/chatbot/",
-        chatbot_create_task,
-        name="chatbot-create-task",
-    ),
 
     # Auth public (login/register REST, không cần token sẵn)
     path(

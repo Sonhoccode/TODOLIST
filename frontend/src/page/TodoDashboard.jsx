@@ -180,8 +180,13 @@ export default function TodoDashboard() {
           listTasks(params),
           listCategories(),
         ]);
-        setTasks(taskData);
-        setCategories(catData);
+        
+        // Handle paginated response
+        const tasks = Array.isArray(taskData) ? taskData : (taskData.results || []);
+        const categories = Array.isArray(catData) ? catData : (catData.results || []);
+        
+        setTasks(tasks);
+        setCategories(categories);
       } catch (err) {
         console.error("Lỗi khi tải dữ liệu:", err);
         if (err.response && err.response.status === 401) {
@@ -198,7 +203,9 @@ export default function TodoDashboard() {
   const loadCategories = async () => {
     try {
       const catData = await listCategories();
-      setCategories(catData);
+      // Handle paginated response
+      const categories = Array.isArray(catData) ? catData : (catData.results || []);
+      setCategories(categories);
     } catch (err) {
       console.error("Lỗi khi tải categories:", err);
     }

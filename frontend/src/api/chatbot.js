@@ -7,7 +7,7 @@ import client from './client';
  */
 export const sendChatMessage = async (message) => {
   try {
-    const response = await client.post('/todos/chatbot/', { message });
+    const response = await client.post('/chatbot/', { message });
     return response.data;
   } catch (error) {
     console.error('Error sending chat message:', error);

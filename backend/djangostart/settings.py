@@ -108,8 +108,23 @@ DATABASES = {
 
 
 # ================== PASSWORD VALIDATORS ==================
-# Đang để trống để test cho dễ
-AUTH_PASSWORD_VALIDATORS = []
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
 
 
 # ================== I18N ==================
@@ -122,6 +137,17 @@ USE_TZ = True  # lưu UTC
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ================== CACHE ==================
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
+    }
+}
+
 
 # ================== CORS / CSRF ==================
 # Frontend chính (local hoặc production)
@@ -131,16 +157,20 @@ FRONTEND_ORIGIN = os.environ.get(
 )
 
 # Backend origin – dùng cho CSRF_TRUSTED_ORIGINS (Railway hoặc api.hsonspace.id.vn)
-BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN")  # vd: "https://api.hsonspace.id.vn"
+BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN", "http://127.0.0.1:8000")
 
-CORS_ALLOWED_ORIGINS = []
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
-# Cho phép frontend gọi vào
-if FRONTEND_ORIGIN:
+# Thêm FRONTEND_ORIGIN nếu khác default
+if FRONTEND_ORIGIN and FRONTEND_ORIGIN not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_ORIGIN)
 
 # Cho phép backend tự gọi chính nó (nếu cần)
-if BACKEND_ORIGIN:
+if BACKEND_ORIGIN and BACKEND_ORIGIN not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(BACKEND_ORIGIN)
 
 # Nếu cần thêm origin khác thì set EXTRA_CORS_ORIGINS="https://foo,https://bar" trong env
@@ -150,14 +180,33 @@ if extra_cors:
         [o.strip() for o in extra_cors.split(",") if o.strip()]
     )
 
-# Nếu sau này cần cookie / session thì bật cái này
+# Cho phép credentials (cookies, authorization headers)
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = []
+# Cho phép tất cả headers
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
-# Cả frontend và backend (nếu có https://...) đều được trust
+# CSRF Configuration
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+]
+
+# Thêm origins từ env
 for origin in [FRONTEND_ORIGIN, BACKEND_ORIGIN]:
-    if origin and origin.startswith("http"):
+    if origin and origin.startswith("http") and origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(origin)
 
 extra_csrf = os.environ.get("EXTRA_CSRF_ORIGINS", "")
@@ -176,7 +225,17 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-    ]
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
 }
 
 SITE_ID = 1
