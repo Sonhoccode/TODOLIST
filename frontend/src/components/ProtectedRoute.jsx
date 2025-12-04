@@ -6,8 +6,10 @@ export default function ProtectedRoute({ children }) {
   const tokenFromUrl = params.get("token");
 
   let token = localStorage.getItem("token");
+  console.log("ProtectedRoute kiểm tra token:", token ? "Có" : "Không có");
 
   if (tokenFromUrl) {
+    console.log("Tìm thấy token trong URL, đang lưu vào localStorage:", tokenFromUrl);
     localStorage.setItem("token", tokenFromUrl);
     token = tokenFromUrl;
 
@@ -18,6 +20,7 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (!token) {
+    console.warn("Không có token trong ProtectedRoute, chuyển hướng về đăng nhập");
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 

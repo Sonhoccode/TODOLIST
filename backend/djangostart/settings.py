@@ -159,6 +159,17 @@ FRONTEND_ORIGIN = os.environ.get(
     "http://localhost:3000",  # mặc định local
 )
 
+# URL frontend của m
+FRONTEND_URL = "http://localhost:3000"  # local
+# hoặc khi lên prod:
+# FRONTEND_URL = "https://hsonspace.id.vn"
+
+# Sau khi login xong, Allauth sẽ redirect về đây
+LOGIN_REDIRECT_URL = FRONTEND_URL
+LOGOUT_REDIRECT_URL = FRONTEND_URL
+ACCOUNT_LOGOUT_REDIRECT_URL = FRONTEND_URL
+
+
 # Backend origin – dùng cho CSRF_TRUSTED_ORIGINS (Railway hoặc api.hsonspace.id.vn)
 BACKEND_ORIGIN = os.environ.get(
     "BACKEND_ORIGIN", 
@@ -296,6 +307,5 @@ if DEBUG:
 else:
     FRONTEND_URL = "https://hsonspace.id.vn"
 
-# Sau khi login xong, allauth sẽ redirect vào URL backend này
 LOGIN_REDIRECT_URL = "/accounts/redirect-after-login/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/accounts/redirect-after-login/"

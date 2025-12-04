@@ -1,6 +1,16 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+
+  useEffect(() => {
+    if (token) {
+      navigate("/home");
+    }
+  }, [token, navigate]);
+
   return (
     <>
       <header className="layout-container sticky top-0 z-50 bg-white w-full h-[62px] p-1 flex items-center justify-between">
@@ -12,24 +22,38 @@ export default function LandingPage() {
         </div>
         {/* header phải */}
         <div className="flex h-full w-1/4 items-center justify-end gap-4 px-8">
-          <button
-            className="px-[30px] py-[8px] border border-transparent bg-black text-white rounded-lg 
-             hover:border-black hover:bg-white hover:text-black transition"
-            onClick={() => {
-              window.location.href = "/login";
-            }}
-          >
-            Sign In
-          </button>
-          <button
-            className="ml-4 px-[30px] py-[8px] border border-transparent bg-black text-white rounded-lg 
-             hover:border-black hover:bg-white hover:text-black transition"
-            onClick={() => {
-              window.location.href = "/register";
-            }}
-          >
-            Sign Up
-          </button>
+          {token ? (
+            <button
+              className="px-[30px] py-[8px] border border-transparent bg-black text-white rounded-lg 
+               hover:border-black hover:bg-white hover:text-black transition"
+              onClick={() => {
+                navigate("/home");
+              }}
+            >
+              Dashboard
+            </button>
+          ) : (
+            <>
+              <button
+                className="px-[30px] py-[8px] border border-transparent bg-black text-white rounded-lg 
+                 hover:border-black hover:bg-white hover:text-black transition"
+                onClick={() => {
+                  navigate("/login");
+                }}
+              >
+                Sign In
+              </button>
+              <button
+                className="ml-4 px-[30px] py-[8px] border border-transparent bg-black text-white rounded-lg 
+                 hover:border-black hover:bg-white hover:text-black transition"
+                onClick={() => {
+                  navigate("/register");
+                }}
+              >
+                Sign Up
+              </button>
+            </>
+          )}
         </div>
       </header>
       <main>
@@ -50,10 +74,14 @@ export default function LandingPage() {
               <button
                 className="mt-6 px-12 py-6 bg-gray-900 text-white rounded-lg hover:bg-black transition"
                 onClick={() => {
-                  window.location.href = "/login";
+                  if (token) {
+                    navigate("/home");
+                  } else {
+                    navigate("/login");
+                  }
                 }}
               >
-                Get Started
+                {token ? "Go to Dashboard" : "Get Started"}
               </button>
 
             </div>

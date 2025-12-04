@@ -16,6 +16,7 @@ export const login = async (username, password) => {
   // - login thường
   // - login Google
   // - login GitHub
+  console.log("Đăng nhập thành công, đang lưu token:", res.data.key);
   localStorage.setItem("token", res.data.key);
   return res.data;
 };
