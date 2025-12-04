@@ -61,7 +61,7 @@ INSTALLED_APPS = [
 
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Luôn ở trên cùng
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -69,7 +69,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware', # Thêm cho allauth
+    'allauth.account.middleware.AccountMiddleware',
+    'djangostart.middleware.RequestTimingMiddleware',  
 ]
 
 ROOT_URLCONF = 'djangostart.urls'
@@ -104,6 +105,9 @@ DATABASES = {
     }
 }
 
+DATABASES["default"]["CONN_MAX_AGE"] = 60  
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True 
+
 
 # --- VÔ HIỆU HÓA BỘ LỌC MẬT KHẨU (ĐỂ TEST) ---
 AUTH_PASSWORD_VALIDATORS = []
@@ -134,7 +138,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://localhost:3000",
     "https://hsonspace.id.vn",
-    "api.hsonspace.id.vn",
+    "https://api.hsonspace.id.vn",
     "https://todolist-production-215a.up.railway.app",
 ]
 
