@@ -459,6 +459,78 @@ def predict_task_completion(request):
     return Response(result)
 
 
+# ============== AI Scheduler ==============
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def schedule_tasks_today(request):
+    """
+    AI auto-schedule tasks for today
+    POST /api/schedule/today/
+    Body: { "available_hours": 8, "start_hour": 9 }
+    """
+    from todo.services.scheduler import AITaskScheduler
+    
+    available_hours = request.data.get("available_hours", 8)
+    start_hour = request.data.get("start_hour", 9)
+    
+    scheduler = AITaskScheduler(request.user)
+    result = scheduler.schedule_today(available_hours, start_hour)
+    
+    return Response(result)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def schedule_tasks_week(request):
+    """
+    AI auto-schedule tasks for the week
+    POST /api/schedule/week/
+    Body: { "hours_per_day": 6 }
+    """
+    from todo.services.scheduler import AITaskScheduler
+    
+    hours_per_day = request.data.get("hours_per_day", 6)
+    
+    scheduler = AITaskScheduler(request.user)
+    result = scheduler.schedule_week(hours_per_day)
+    
+    return Response(result)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def apply_schedule(request):
+    """
+    Apply suggested schedule to tasks
+    POST /api/schedule/apply/
+    Body: { "schedule": [...] }
+    """
+    schedule = request.data.get("schedule", [])
+    
+    if not schedule:
+        return Response(
+            {"error": "No schedule provided"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Update tasks with scheduled times
+    updated_count = 0
+    for item in schedule:
+        try:
+            task = Todo.objects.get(id=item['task_id'], owner=request.user)
+            task.due_at = datetime.fromisoformat(item['end_time'])
+            task.save()
+            updated_count += 1
+        except Todo.DoesNotExist:
+            continue
+    
+    return Response({
+        "success": True,
+        "updated_count": updated_count
+    })
+
+
 # ============== Chatbot tạo task ==============
 
 @api_view(["POST"])

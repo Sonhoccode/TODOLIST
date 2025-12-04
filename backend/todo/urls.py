@@ -10,6 +10,9 @@ from .views import (
     NotificationSettingViewSet,
     predict_task_completion,
     chatbot_create_task,
+    schedule_tasks_today,
+    schedule_tasks_week,
+    apply_schedule,
     PublicLoginView,
     PublicRegisterView,
     accept_share,
@@ -36,6 +39,23 @@ urlpatterns = [
         "chatbot/",
         chatbot_create_task,
         name="chatbot-create-task",
+    ),
+    
+    # AI Scheduler
+    path(
+        "schedule/today/",
+        schedule_tasks_today,
+        name="schedule-today",
+    ),
+    path(
+        "schedule/week/",
+        schedule_tasks_week,
+        name="schedule-week",
+    ),
+    path(
+        "schedule/apply/",
+        apply_schedule,
+        name="apply-schedule",
     ),
     
     # Routers cơ bản (CRUD todo, category, report, notification)

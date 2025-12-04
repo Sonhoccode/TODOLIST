@@ -5,6 +5,7 @@ import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import TaskList from "../components/tasks/TaskList";
 import TaskGrid from "../components/tasks/TaskGrid";
+import AIScheduler from "../components/AIScheduler";
 
 import { getProgressReport, getPriorityReport } from "../api/reports";
 import {

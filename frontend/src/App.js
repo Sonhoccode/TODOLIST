@@ -10,6 +10,7 @@ const TodoDashboard = lazy(() => import("./page/TodoDashboard"));
 const Login = lazy(() => import("./page/login"));
 const Register = lazy(() => import("./page/register"));
 const ShareTodoPage = lazy(() => import("./page/ShareTodoPage"));
+const SchedulerTest = lazy(() => import("./page/SchedulerTest"));
 
 // Loading component
 const LoadingFallback = () => (
@@ -29,6 +30,16 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/share/:shareLink" element={<ShareTodoPage />} />
+        
+        {/* AI Scheduler Test Page */}
+        <Route 
+          path="/scheduler" 
+          element={
+            <ProtectedRoute>
+              <SchedulerTest />
+            </ProtectedRoute>
+          } 
+        />
 
         <Route 
           path="/home" 
