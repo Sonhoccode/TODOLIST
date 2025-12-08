@@ -7,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http"
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 
 # ================== ENVIRONMENT ==================
 # ENVIRONMENT: local | production
