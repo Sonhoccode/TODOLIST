@@ -207,7 +207,7 @@ class TodoViewSet(viewsets.ModelViewSet):
         )
 
         # Gửi mail mời
-        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+        frontend_url = getattr(settings, "FRONTEND_URL")
         share_url = f"{frontend_url}/share/{share_link}"
 
         subject = f"{request.user.username} đã chia sẻ một task cho bạn"

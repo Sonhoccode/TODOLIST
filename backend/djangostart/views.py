@@ -11,7 +11,7 @@ def redirect_after_login(request):
     token, _ = Token.objects.get_or_create(user=request.user)
 
     # URL FE – lấy từ env, default local
-    frontend = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
+    frontend = os.environ.get("FRONTEND_ORIGIN")
     redirect_url = f"{frontend}/home?token={token.key}"
 
     return redirect(redirect_url)

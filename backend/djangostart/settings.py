@@ -108,9 +108,9 @@ CACHES = {
 }
 
 # urls & origins
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL")
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", FRONTEND_URL)
-BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN", "http://127.0.0.1:8000")
+BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN")
 
 LOGIN_REDIRECT_URL = FRONTEND_URL
 LOGOUT_REDIRECT_URL = FRONTEND_URL
