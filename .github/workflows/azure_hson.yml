@@ -1,24 +1,4 @@
-Skip to content
-Navigation Menu
-Sonhoccode
-TODOLIST
 
-Type to search /
-Code
-Issues
-1
-Pull requests
-Actions
-Projects
-Wiki
-Security
-Insights
-Settings
-Build and deploy Python app to Azure Web App - hson
-Update azure_hson.yml #3
-All jobs
-Run details
-Workflow file for this run
 .github/workflows/azure_hson.yml at a8f01fe
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
