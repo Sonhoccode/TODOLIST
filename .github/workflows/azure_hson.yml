@@ -1,7 +1,3 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
-
 name: Build and deploy Python app to Azure Web App - hson
 
 on:
@@ -14,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read # This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -24,26 +20,31 @@ jobs:
         with:
           python-version: '3.10'
 
+      # --- BƯỚC DEBUG: Kiểm tra xem file nằm ở đâu ---
+      - name: Check directory structure
+        run: ls -R
+      # ---------------------------------------------
+
       - name: Create and Start virtual environment and Install dependencies
         run: |
           python -m venv antenv
           source antenv/bin/activate
-          # QUAN TRỌNG: Lệnh này trỏ vào thư mục backend
+          # QUAN TRỌNG: Lệnh này trỏ vào file trong thư mục backend
           pip install -r backend/requirements.txt
                 
-      # QUAN TRỌNG: Chỉ upload thư mục backend lên Azure để deploy
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
+          # QUAN TRỌNG: Chỉ upload thư mục backend
           path: backend/
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
     permissions:
-      id-token: write # This is required for requesting the JWT
-      contents: read # This is required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
       - name: Download artifact from build job
