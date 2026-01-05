@@ -20,23 +20,34 @@ jobs:
         with:
           python-version: '3.10'
 
-      # --- BƯỚC DEBUG: Kiểm tra xem file nằm ở đâu ---
+      # --- BƯỚC DEBUG QUAN TRỌNG ---
+      # Bước này sẽ in ra toàn bộ file trong repo để bạn biết file requirements.txt đang nằm ở đâu
       - name: Check directory structure
         run: ls -R
-      # ---------------------------------------------
+      # -----------------------------
 
       - name: Create and Start virtual environment and Install dependencies
         run: |
           python -m venv antenv
           source antenv/bin/activate
-          # QUAN TRỌNG: Lệnh này trỏ vào file trong thư mục backend
-          pip install -r backend/requirements.txt
+          
+          # FIX Ở ĐÂY: Trỏ thẳng vào thư mục backend
+          if [ -f "backend/requirements.txt" ]; then
+            echo "Tim thay file trong folder backend!"
+            pip install -r backend/requirements.txt
+          elif [ -f "requirements.txt" ]; then
+            echo "Tim thay file o thu muc goc!"
+            pip install -r requirements.txt
+          else
+            echo "LOI: Khong tim thay file requirements.txt o dau ca!"
+            exit 1
+          fi
                 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          # QUAN TRỌNG: Chỉ upload thư mục backend
+          # Upload thư mục backend (nơi chứa code Django/Python)
           path: backend/
 
   deploy:
