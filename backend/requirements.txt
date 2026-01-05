@@ -19,3 +19,4 @@ dj-rest-auth
 djangorestframework-simplejwt
 django-allauth
 requests
+django-redis

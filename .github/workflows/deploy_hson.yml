@@ -1,0 +1,62 @@
+name: Build and deploy Python app to Azure Web App - hson
+
+on:
+  push:
+    branches:
+      - deploy
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python version
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Create and Start virtual environment and Install dependencies
+        run: |
+          python -m venv antenv
+          source antenv/bin/activate
+          # QUAN TRỌNG: Lệnh này trỏ vào thư mục backend
+          pip install -r backend/requirements.txt
+
+      # QUAN TRỌNG: Chỉ upload thư mục backend lên Azure
+      - name: Upload artifact for deployment jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: backend/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9EF18412F21C49E989B77AC051B25B6D }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4AC3F63DDBD44451AAFE6296784A91DB }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_02996DC3F3A14F76AB0D73A4F6490885 }}
+
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'hson'
+          slot-name: 'Production'

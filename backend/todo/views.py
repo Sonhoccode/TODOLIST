@@ -44,6 +44,9 @@ from .services.ai import predict_task_on_time
 from .services.chatbot import TaskChatbot
 
 
+import hashlib
+from django.core.cache import cache
+
 # ============== Category ==============
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -99,6 +102,40 @@ class TodoViewSet(viewsets.ModelViewSet):
     filterset_fields = ["created_at", "due_at", "priority", "category", "completed"]
     ordering_fields = ["created_at", "due_at", "priority"]
 
+    def get_todo_cache_version(self, user_id):
+        version = cache.get(f"todo_version_{user_id}")
+        if not version:
+            version = 1
+            cache.set(f"todo_version_{user_id}", version, timeout=None)
+        return version
+
+    def increment_todo_cache_version(self, user_id):
+        try:
+            cache.incr(f"todo_version_{user_id}")
+        except ValueError:
+            cache.set(f"todo_version_{user_id}", 1, timeout=None)
+
+    def list(self, request, *args, **kwargs):
+        user_id = request.user.id
+        version = self.get_todo_cache_version(user_id)
+        
+        # Create a unique cache key based on query params
+        query_params = request.query_params.dict()
+        query_string = json.dumps(query_params, sort_keys=True)
+        query_hash = hashlib.md5(query_string.encode('utf-8')).hexdigest()
+        
+        cache_key = f"todo_list_{user_id}_v{version}_{query_hash}"
+        
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+            
+        response = super().list(request, *args, **kwargs)
+        
+        # Cache the response data for 5 minutes (300 seconds)
+        cache.set(cache_key, response.data, 300)
+        return response
+
     def get_queryset(self):
         # Tối ưu query với select_related
         return (
@@ -110,16 +147,19 @@ class TodoViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
         self._clear_user_cache(self.request.user.id)
+        self.increment_todo_cache_version(self.request.user.id)
     
     def perform_update(self, serializer):
         serializer.save()
         self._clear_user_cache(self.request.user.id)
+        self.increment_todo_cache_version(self.request.user.id)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
             self.perform_destroy(instance)
             self._clear_user_cache(request.user.id)
+            self.increment_todo_cache_version(request.user.id)
         except Exception as e:
             print("ERROR_WHEN_DELETING_TODO:", repr(e))
             return Response(
@@ -138,6 +178,7 @@ class TodoViewSet(viewsets.ModelViewSet):
         todo.save()
         # Clear cache
         self._clear_user_cache(request.user.id)
+        self.increment_todo_cache_version(request.user.id)
         serializer = self.get_serializer(todo, context={"request": request})
         return Response(serializer.data)
     
