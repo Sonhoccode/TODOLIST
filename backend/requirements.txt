@@ -9,6 +9,7 @@ joblib==1.4.2
 numpy
 gunicorn>=22.0.0
 cryptography
+whitenoise==6.6.0
 
 # API Features
 django-filter
