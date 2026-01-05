@@ -24,11 +24,10 @@ jobs:
         run: |
           python -m venv antenv
           source antenv/bin/activate
-          # SỬA LỖI Ở ĐÂY: Trỏ đúng vào thư mục backend và sửa lỗi chính tả
+          # QUAN TRỌNG: Lệnh này trỏ vào thư mục backend
           pip install -r backend/requirements.txt
 
       # QUAN TRỌNG: Chỉ upload thư mục backend lên Azure
-      # Việc này giúp file requirements.txt và manage.py nằm ngay thư mục gốc khi lên server
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
