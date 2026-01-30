@@ -127,9 +127,9 @@ else:
     }
 
 # urls & origins
-FRONTEND_URL = os.environ.get("FRONTEND_URL") or os.environ.get("FRONTEND_ORIGIN")  # Fallback
-FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", FRONTEND_URL)
-BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN")
+FRONTEND_URL = os.environ.get("FRONTEND_URL") or os.environ.get("FRONTEND_ORIGIN") or "http://localhost:3000"  # Safe fallback
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN") or FRONTEND_URL
+BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN") or "http://127.0.0.1:8000"
 
 LOGIN_REDIRECT_URL = FRONTEND_URL
 LOGOUT_REDIRECT_URL = FRONTEND_URL
