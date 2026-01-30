@@ -20,3 +20,4 @@ djangorestframework-simplejwt
 django-allauth
 requests
 django-redis
+argon2-cffi

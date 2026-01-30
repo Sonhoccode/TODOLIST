@@ -98,14 +98,33 @@ USE_TZ = True
 # static files
 STATIC_URL = 'static/'
 
-# cache
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-        'OPTIONS': {'MAX_ENTRIES': 1000}
+# cache - Redis for production performance
+REDIS_URL = os.environ.get('REDIS_URL')
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+                'CONNECTION_POOL_KWARGS': {'max_connections': 50},
+                'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+            },
+            'KEY_PREFIX': 'todolist',
+            'TIMEOUT': 300,  # 5 minutes default
+        }
     }
-}
+else:
+    # Fallback to LocMemCache if Redis not available
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+            'OPTIONS': {'MAX_ENTRIES': 1000}
+        }
+    }
 
 # urls & origins
 FRONTEND_URL = os.environ.get("FRONTEND_URL")
@@ -153,6 +172,14 @@ REST_FRAMEWORK = {
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# password hashers - Argon2 is 3-5x faster than PBKDF2
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',  # Fastest & most secure
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',  # Django default (fallback)
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
 ]
 
 ACCOUNT_LOGIN_METHODS = ['username']

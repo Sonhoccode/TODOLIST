@@ -5,6 +5,7 @@ import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Lazy load các pages để tối ưu performance
+const AuthLoadingPage = lazy(() => import("./page/AuthLoadingPage"));
 const LandingPage = lazy(() => import("./page/landing_page"));
 const TodoDashboard = lazy(() => import("./page/TodoDashboard"));
 const Login = lazy(() => import("./page/login"));
@@ -26,7 +27,8 @@ export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<AuthLoadingPage />} />
+        <Route path="/landing" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/share/:shareLink" element={<ShareTodoPage />} />
