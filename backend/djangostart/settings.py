@@ -127,7 +127,7 @@ else:
     }
 
 # urls & origins
-FRONTEND_URL = os.environ.get("FRONTEND_URL")
+FRONTEND_URL = os.environ.get("FRONTEND_URL") or os.environ.get("FRONTEND_ORIGIN")  # Fallback
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", FRONTEND_URL)
 BACKEND_ORIGIN = os.environ.get("BACKEND_ORIGIN")
 
@@ -203,3 +203,4 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # email
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
