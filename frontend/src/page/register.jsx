@@ -14,6 +14,7 @@ export default function Register() {
     password2: "",
   });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -26,15 +27,24 @@ export default function Register() {
       return;
     }
     setError("");
+    setLoading(true);
     try {
-      await register({
+      const res = await register({
         username: form.username,
         email: form.email,
         password1: form.password,
         password2: form.password2,
       });
-      navigate("/login");
+      
+      // Auto login if token is returned
+      if (res.data && res.data.key) {
+        localStorage.setItem("token", res.data.key);
+        navigate("/home");
+      } else {
+        navigate("/login");
+      }
     } catch (err) {
+      setLoading(false);
       if (err.response && err.response.data) {
         const apiErrors = err.response.data;
         if (apiErrors.username) setError(apiErrors.username[0]);
@@ -55,6 +65,67 @@ export default function Register() {
   const handleGithubLogin = () => {
     window.location.href = `${API_BASE_URL}/accounts/github/login/`;
   };
+  
+  // Show loading page during authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100">
+        {/* Header - same as login */}
+        <header className="bg-white/80 backdrop-blur border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+          <div className="max-w-5xl mx-auto h-[72px] px-6 flex items-center justify-between">
+            <div className="px-4 py-2 rounded-full bg-gray-900 text-white text-xl font-bold tracking-tight shadow-sm">
+              TODO
+            </div>
+            <p className="text-sm md:text-base text-gray-700 font-medium">
+              Welcome back. Let's get things done.
+            </p>
+          </div>
+        </header>
+
+        {/* Loading content */}
+        <main className="flex-1 flex items-center justify-center px-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl ring-1 ring-black/10 p-8 md:p-10">
+            <div className="text-center space-y-6">
+              {/* Logo */}
+              <div className="inline-block">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur-xl opacity-20"></div>
+                  <div className="relative bg-gray-900 rounded-2xl px-6 py-3">
+                    <h1 className="text-3xl font-bold text-white">TODO</h1>
+                  </div>
+                </div>
+              </div>
+
+              {/* Spinner */}
+              <div className="flex justify-center py-4">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-gray-200 rounded-full"></div>
+                  <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-black border-r-gray-600 rounded-full animate-spin"></div>
+                </div>
+              </div>
+
+              {/* Text */}
+              <div className="space-y-2">
+                <p className="text-lg font-semibold text-gray-900">
+                  Đang tạo tài khoản...
+                </p>
+                <p className="text-sm text-gray-500">
+                  Vui lòng đợi trong giây lát
+                </p>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-xs mx-auto">
+                <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100">
