@@ -10,6 +10,9 @@ from .views import (
     NotificationSettingViewSet,
     predict_task_completion,
     chatbot_create_task,
+    schedule_tasks_today,
+    schedule_tasks_week,
+    apply_schedule,
     PublicLoginView,
     PublicRegisterView,
     accept_share,
@@ -26,6 +29,35 @@ router.register(
 )
 
 urlpatterns = [
+    # API AI - Đặt TRƯỚC router để tránh conflict
+    path(
+        "predict/",
+        predict_task_completion,
+        name="predict-task",
+    ),
+    path(
+        "chatbot/",
+        chatbot_create_task,
+        name="chatbot-create-task",
+    ),
+    
+    # AI Scheduler
+    path(
+        "schedule/today/",
+        schedule_tasks_today,
+        name="schedule-today",
+    ),
+    path(
+        "schedule/week/",
+        schedule_tasks_week,
+        name="schedule-week",
+    ),
+    path(
+        "schedule/apply/",
+        apply_schedule,
+        name="apply-schedule",
+    ),
+    
     # Routers cơ bản (CRUD todo, category, report, notification)
     path("", include(router.urls)),
 
@@ -46,18 +78,6 @@ urlpatterns = [
     # Auth chuẩn (token, password reset, social, ...)
     path("dj-rest-auth/", include("dj_rest_auth.urls")),
     path("dj-rest-auth/registration/", include("dj_rest_auth.registration.urls")),
-
-    # API AI
-    path(
-        "todos/predict/",
-        predict_task_completion,
-        name="predict-task",
-    ),
-    path(
-        "todos/chatbot/",
-        chatbot_create_task,
-        name="chatbot-create-task",
-    ),
 
     # Auth public (login/register REST, không cần token sẵn)
     path(

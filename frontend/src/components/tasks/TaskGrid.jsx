@@ -22,7 +22,7 @@ function fmt(dt) {
 }
 
 // Component Card riêng lẻ cho Grid
-function TaskCard({ task, onToggle, onEdit, onDelete }) {
+function TaskCard({ task, onToggle, onEdit, onDelete, onShare }) {
   const t = task; 
   const overdue = !t.completed && t.due_at && new Date(t.due_at).getTime() < Date.now();
   const tone =
@@ -81,6 +81,9 @@ function TaskCard({ task, onToggle, onEdit, onDelete }) {
       <div className="mt-auto flex justify-end gap-2">
         <button onClick={()=>onEdit(t)} className="px-3 py-1 rounded-full border hover:bg-gray-50 text-sm">Sửa</button>
         <button onClick={()=>onDelete(t)} className="px-3 py-1 rounded-full border hover:bg-gray-50 text-sm">Xoá</button>
+        {onShare && (
+          <button onClick={()=>onShare(t)} className="px-3 py-1 rounded-full border hover:bg-gray-50 text-sm">Chia sẻ</button>
+        )}
       </div>
     </div>
   );
@@ -93,6 +96,7 @@ export default function TaskGrid({
   onToggle,
   onEdit,
   onDelete,
+  onShare,
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -103,6 +107,7 @@ export default function TaskGrid({
           onToggle={onToggle}
           onEdit={onEdit}
           onDelete={onDelete}
+          onShare={onShare}
         />
       ))}
     </div>

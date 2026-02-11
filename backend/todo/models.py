@@ -43,7 +43,7 @@ class Todo(models.Model):
     # Thêm 'owner'
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='todos')
     
-    title = models.CharField("Tiêu đề", max_length=200)
+    title = models.CharField("Tiêu đề", max_length=200, db_index=True)
     description = models.TextField("Mô tả", blank=True)
     category = models.ForeignKey(
         Category,
@@ -53,21 +53,21 @@ class Todo(models.Model):
         blank=True,
         verbose_name="Danh mục"
     )
-    priority = models.CharField("Mức ưu tiên", max_length=10, choices=PRIORITY_CHOICES, default='Medium')
+    priority = models.CharField("Mức ưu tiên", max_length=10, choices=PRIORITY_CHOICES, default='Medium', db_index=True)
     
     # (Đã XÓA 'status')
     
-    created_at = models.DateTimeField("Ngày tạo", auto_now_add=True)
+    created_at = models.DateTimeField("Ngày tạo", auto_now_add=True, db_index=True)
 
     # --- CÁC TRƯỜNG KHỚP VỚI REACT ---
     # Đổi 'deadline' thành 'due_at'
-    due_at = models.DateTimeField("Thời hạn", null=True, blank=True)
+    due_at = models.DateTimeField("Thời hạn", null=True, blank=True, db_index=True)
     
     # Đổi 'reminder_time' thành 'remind_at'
     remind_at = models.DateTimeField("Thời gian nhắc nhở", null=True, blank=True)
 
     # Thêm trường 'completed' (boolean)
-    completed = models.BooleanField(default=False)
+    completed = models.BooleanField(default=False, db_index=True)
 
     # Thêm trường 'tags' (dạng string)
     tags = models.CharField(max_length=255, blank=True)
@@ -79,6 +79,11 @@ class Todo(models.Model):
     class Meta:
         verbose_name = "Công việc"
         verbose_name_plural = "Các công việc"
+        indexes = [
+            models.Index(fields=['owner', 'completed']),
+            models.Index(fields=['owner', 'due_at']),
+            models.Index(fields=['owner', 'priority']),
+        ]
 
     def __str__(self):
         return self.title
@@ -119,11 +124,11 @@ class TaskShare(models.Model):
         default="view",
     )
     share_link = models.CharField(
-        max_length=64,
+        max_length=32,  # Tăng từ 64 lên 32 ký tự thực tế để bảo mật hơn
         unique=True,
         db_index=True,
     )
-    accepted = models.BooleanField(default=False)
+    accepted = models.BooleanField(default=False, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -12,7 +12,7 @@ import client from './client';
  */
 export const predictTaskCompletion = async (taskData) => {
   try {
-    const response = await client.post('/todos/predict/', taskData);
+    const response = await client.post('/predict/', taskData);
     return response.data;
   } catch (error) {
     console.error('Error predicting task completion:', error);

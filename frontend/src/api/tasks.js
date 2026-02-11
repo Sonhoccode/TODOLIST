@@ -1,5 +1,6 @@
 // src/api/tasks.js
 import client from "./client";
+import { cachedApiCall, apiCache } from "../utils/cache";
 
 const endpoint = "/todos/";
 
@@ -7,27 +8,53 @@ const endpoint = "/todos/";
 export const listTasks = (params) =>
   client.get(endpoint, { params }).then((r) => r.data);
 
-export const createTask = (data) =>
-  client.post(endpoint, data).then((r) => r.data);
+export const createTask = (data) => {
+  // Clear cache khi tạo task mới
+  apiCache.clear("tasks");
+  apiCache.clear("reports");
+  return client.post(endpoint, data).then((r) => r.data);
+};
 
-export const updateTask = (id, data) =>
-  client.put(`${endpoint}${id}/`, data).then((r) => r.data);
+export const updateTask = (id, data) => {
+  // Clear cache khi update
+  apiCache.clear("tasks");
+  apiCache.clear("reports");
+  return client.put(`${endpoint}${id}/`, data).then((r) => r.data);
+};
 
-export const deleteTask = (id) =>
-  client.delete(`${endpoint}${id}/`).then((r) => r.data);
+export const deleteTask = (id) => {
+  // Clear cache khi delete
+  apiCache.clear("tasks");
+  apiCache.clear("reports");
+  return client.delete(`${endpoint}${id}/`).then((r) => r.data);
+};
 
-export const toggleTaskStatus = (id) =>
-  client.patch(`${endpoint}${id}/toggle-status/`).then((r) => r.data);
+export const toggleTaskStatus = (id) => {
+  // Clear cache khi toggle
+  apiCache.clear("tasks");
+  apiCache.clear("reports");
+  return client.patch(`${endpoint}${id}/toggle-status/`).then((r) => r.data);
+};
 
 // ==== CATEGORY ====
 export const listCategories = () =>
-  client.get("/categories/").then((r) => r.data);
+  cachedApiCall(
+    "categories",
+    () => client.get("/categories/").then((r) => r.data),
+    300000 // Cache 5 phút vì categories ít thay đổi
+  );
 
-export const createCategory = (data) =>
-  client.post("/categories/", data).then((r) => r.data);
+export const createCategory = (data) => {
+  // Clear cache khi tạo category
+  apiCache.clear("categories");
+  return client.post("/categories/", data).then((r) => r.data);
+};
 
-export const deleteCategory = (id) =>
-  client.delete(`/categories/${id}/`).then((r) => r.data);
+export const deleteCategory = (id) => {
+  // Clear cache khi xóa category
+  apiCache.clear("categories");
+  return client.delete(`/categories/${id}/`).then((r) => r.data);
+};
 
 // ==== SHARE TASK ====
 export const shareTask = (payload) =>

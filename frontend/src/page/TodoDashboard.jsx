@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import TaskList from "../components/tasks/TaskList";
 import TaskGrid from "../components/tasks/TaskGrid";
+import AIScheduler from "../components/AIScheduler";
 
 import { getProgressReport, getPriorityReport } from "../api/reports";
 import {
@@ -21,7 +22,7 @@ import { logout } from "../api/auth";
 import { predictTaskCompletion, prepareAIPredictionData } from "../api/ai";
 import { sendChatMessage } from "../api/chatbot";
 import { getNotificationByTodo, saveNotificationForTodo } from "../api/notifications";
-import { shareTask } from "../api/share";
+import { shareTask, listSharedWithMe } from "../api/share";
 
 // ================== Helper ==================
 
@@ -63,6 +64,10 @@ function splitDateTime(isoString) {
   };
 }
 
+function useQuery() {
+  return new URLSearchParams(useLocation().search);
+}
+
 function Field({ label, children }) {
   return (
     <label className="block mb-3">
@@ -97,6 +102,7 @@ function Modal({ open, onClose, title, children, footer }) {
 
 export default function TodoDashboard() {
   const navigate = useNavigate();
+  const query = useQuery();
 
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -162,7 +168,10 @@ export default function TodoDashboard() {
   // Share state
   const [sharingTask, setSharingTask] = useState(null);
   const [shareEmail, setShareEmail] = useState("");
+  const [sharePermission, setSharePermission] = useState("view");
   const [shareError, setShareError] = useState("");
+
+
 
   // ================== Load data ==================
 
@@ -170,18 +179,40 @@ export default function TodoDashboard() {
     async () => {
       setLoading(true);
       try {
-        const params = {};
-        if (status === "completed") params.completed = true;
-        if (status === "active") params.completed = false;
-        if (priority !== "all") params.priority = priority;
-        if (category !== "all") params.category = category;
+        if (status === "shared") {
+           const sharedData = await listSharedWithMe();
+           // Map shared tasks to match regular task structure
+           // Backend returns TaskShare objects, we need the nested 'task' object
+           // plus permission info if needed.
+           const mappedTasks = sharedData.map(item => ({
+             ...item.task_details,
+             permission: item.permission,
+             shared_by: item.shared_by,
+             is_shared: true
+           }));
+           setTasks(mappedTasks);
+           // We don't need categories for shared view necessarily, but keeping them is fine
+           const catData = await listCategories();
+           setCategories(Array.isArray(catData) ? catData : (catData.results || []));
+        } else {
+            const params = {};
+            if (status === "completed") params.completed = true;
+            if (status === "active") params.completed = false;
+            if (priority !== "all") params.priority = priority;
+            if (category !== "all") params.category = category;
 
-        const [taskData, catData] = await Promise.all([
-          listTasks(params),
-          listCategories(),
-        ]);
-        setTasks(taskData);
-        setCategories(catData);
+            const [taskData, catData] = await Promise.all([
+              listTasks(params),
+              listCategories(),
+            ]);
+            
+            // Handle paginated response
+            const tasks = Array.isArray(taskData) ? taskData : (taskData.results || []);
+            const categories = Array.isArray(catData) ? catData : (catData.results || []);
+            
+            setTasks(tasks);
+            setCategories(categories);
+        }
       } catch (err) {
         console.error("Lỗi khi tải dữ liệu:", err);
         if (err.response && err.response.status === 401) {
@@ -195,10 +226,13 @@ export default function TodoDashboard() {
     [status, priority, category, navigate]
   );
 
+
   const loadCategories = async () => {
     try {
       const catData = await listCategories();
-      setCategories(catData);
+      // Handle paginated response
+      const categories = Array.isArray(catData) ? catData : (catData.results || []);
+      setCategories(categories);
     } catch (err) {
       console.error("Lỗi khi tải categories:", err);
     }
@@ -503,6 +537,7 @@ export default function TodoDashboard() {
   const openShare = (task) => {
     setSharingTask(task);
     setShareEmail("");
+    setSharePermission("view");
     setShareError("");
   };
 
@@ -515,13 +550,21 @@ export default function TodoDashboard() {
     }
 
     try {
-      await shareTask(sharingTask.id, email, "view");
-      alert("Đã chia sẻ công việc.");
+      const res = await shareTask(sharingTask.id, email, sharePermission);
+      
+      if (res.warning) {
+        alert(`Đã chia sẻ công việc, nhưng có cảnh báo: ${res.warning}`);
+      } else {
+        alert("Đã chia sẻ công việc thành công.");
+      }
+      
       setSharingTask(null);
       setShareEmail("");
+      setSharePermission("view");
       setShareError("");
     } catch (err) {
       console.error("Lỗi chia sẻ task:", err);
+      console.log("Share task error details:", err.response);
       setShareError(err.response?.data?.error || "Không thể chia sẻ, thử lại sau.");
     }
   };
@@ -1148,6 +1191,7 @@ export default function TodoDashboard() {
           setSharingTask(null);
           setShareEmail("");
           setShareError("");
+          setSharePermission("view");
         }}
         title="Chia sẻ công việc"
         footer={
@@ -1157,6 +1201,7 @@ export default function TodoDashboard() {
                 setSharingTask(null);
                 setShareEmail("");
                 setShareError("");
+                setSharePermission("view");
               }}
               className="px-3 py-2 rounded-lg border hover:bg-gray-50"
             >
@@ -1184,6 +1229,18 @@ export default function TodoDashboard() {
             placeholder="nguoi-dung@example.com"
           />
         </Field>
+        
+        <Field label="Quyền hạn">
+          <select
+            className="w-full rounded-lg border px-3 py-2"
+            value={sharePermission}
+            onChange={(e) => setSharePermission(e.target.value)}
+          >
+            <option value="view">Chỉ xem (View)</option>
+            <option value="edit">Được sửa (Edit)</option>
+          </select>
+        </Field>
+
         {shareError && (
           <p className="mt-1 text-sm text-red-600">{shareError}</p>
         )}
